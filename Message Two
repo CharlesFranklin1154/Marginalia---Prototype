@@ -1,0 +1,21 @@
+# Marginalia AI Assistant Guidelines
+
+## Codebase Architecture
+- The application is currently constructed as a single-file client-side prototype (`index.html`) containing embedded CSS and vanilla JavaScript.
+- Maintain strict modularity within the JavaScript functions. Do not introduce external npm dependencies or heavy third-party CSS/JS frameworks unless explicitly tasked with transitioning to a build setup.
+
+## Aesthetic & Design Rules
+- **Font Stack:** Headlines must use Lora (`serif`); UI chrome and form elements must use Karla (`sans-serif`).
+- **Color Rules:** Do not hardcode HEX codes directly inside component logic; always refer to the 11-theme CSS custom variables system.
+- **Micro-Interactions:** Image lightboxes must retain the custom cursor hint (`✦ Click to enlarge`) and CSS keyframe scale/bounce transition (~300ms duration). Never snap lightboxes open instantly.
+- **Animations:** Respect reduced-motion preferences. All theme ambient particle animations must be subtle and GPU-accelerated (`transform`, `opacity`).
+
+## Critical Business Logic & Safety Safeguards
+1. **Two-Step Deletion:** Never bypass the two-stage confirmation modal when a user deletes a book project.
+2. **Image Sizing:** All reference images must enforce client-side canvas resizing to a maximum of 800x800px on upload before saving to state/storage.
+3. **Rich Text Canvas:** The chapter/scene editor relies on HTML5 `contenteditable` and standard rich-text commands. Keep formatting outputs clean (strip raw HTML tags when generating card summary previews).
+4. **Entity Tag System:** Character tags represent items carried, faction/regime, race, or homeland. Keep tags flexible and clean.
+
+## Future Backend Roadmap Considerations
+- Prepare state structures for easy JSON serialization when migrating from `localStorage` to Supabase/Postgres.
+- Keep the AI Assist Setting toggles (Modes A, B, and C) bound to the user settings object so they can easily be passed as parameters to an API endpoint in V2.

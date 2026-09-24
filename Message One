@@ -1,0 +1,88 @@
+# Project Context: Marginalia
+
+## Overview & Vision
+* **App Name:** Marginalia
+* **Concept:** A literary, calm, and distraction-free writing workbench designed around the philosophy: *"A website that lets you do the writing, while guiding your memory."*
+* **Core Philosophy:** Serves both "Planners" (who build out characters/world details beforehand) and "Pantsers" (who write freely as the story emerges).
+* **Aesthetic & Mood:** Rainy-day literary comfort. Low cognitive load, serif-driven typography, soft paper textures, and ambient background animations.
+
+---
+
+## Current Architecture & Tech Stack (V1)
+* **Format:** Single-file application (`index.html`) combining HTML5, embedded CSS, and vanilla JS.
+* **Storage:** Client-side `localStorage` (Sandboxed mock login, settings, books, and entities).
+* **Typography:** `Lora` (Serif for titles/headings/literary elements), `Karla` (Sans-serif for UI chrome and controls).
+* **Color Palette:**
+  * Background: Rain-window grey-blue (`#E4E7E6`)
+  * Cards: Warm paper-cream (`#F6F3EC`)
+  * Text: Deep ink (`#2B302C`)
+  * Accent: Muted slate (`#5C7380`)
+  * Active States: Soft moss (`#7C8B6F`)
+
+---
+
+## Key Features & UI Workflows Implemented
+
+### 1. Authentication & Testing Gate
+* Mock login/signup form (email + password saved in `localStorage`).
+* **Temporary Testing Feature:** A clearly marked "FOR TESTING" admin bypass button to jump directly into the app as "Admin (testing)".
+
+### 2. The Shelf / Library (Homepage)
+* Displays book projects formatted like book spines/covers.
+* **Hover State:** Cards grow slightly on hover. Shows image cover + title below.
+* **Dimensions:** Book covers expect `400 x 600px` (portrait).
+* **New Book Flow:** "Start a new book" opens a modal asking for Title, optional Cover Upload, and initial Theme choice.
+* **Card Expansion:** Clicking a book grows that exact card in-place to fill the screen (no modal popup), transitioning into the project workspace.
+* **Two-Step Deletion Guardrail:**
+  * Step 1: *"Delete this book? Everything inside it will be deleted with it."*
+  * Step 2: *"Are you positive? There's no undo."*
+
+### 3. Themes & Ambient Aesthetics (11 Themes)
+* **Themes:** Rainy & Quiet (Default), Fantasy, Mystery, Thriller, Noir, Sci-Fi, Horror, Romance, Historical, Western, Cozy.
+* Each theme includes custom Light and Dark modes, distinct palette accents, and subtle ambient animations (e.g., rain streaks, floating embers, drifting fog, rising data).
+* **Theme Switching:** Selectable per-book at creation or globally via the sidebar footer.
+
+### 4. Project Workspace & Side Navigation
+* **Navbar Layout:** Collapsible side panel (toggles between expanded view with text labels and a slim icon rail view).
+* **Navigation Items:** Top item is the current Book Title, followed by sub-cards: Chapters, Scenes, Characters, Locations, Items, Brain Dump.
+* **Resume Banner:** Detects the single most recent save across all categories and displays a "Resume where you left off" banner (e.g., *"Chapter: Ch. 13 — 2h ago"*).
+
+### 5. Writing Canvas (Chapters & Scenes)
+* **Sub-Cards:** "Add a Scene" sits directly after "Add a Chapter".
+* **Rich Text Toolbar:** Built with `document.execCommand` (paragraph styles, font families, text sizes, bold/italic/underline/strikethrough, text color, alignment, bullet/numbered lists, undo/redo, clear formatting).
+* **Entity Live Match Sidebar (V1):**
+  * As the user types, the editor scans text in real time against stored character, location, and item names.
+  * **Matched Entity Cards:** Dynamically display in a right-hand sidebar (PC) or bottom draggable drawer (Mobile).
+  * Filter chips available: All / Characters / Locations / Items.
+  * Click any matched card to open its editor.
+
+### 6. Entity Data Templates & Image Lightbox
+
+#### Image Lightbox Protocol
+* Reference images auto-resize down to max `800 x 800px` on upload.
+* Thumbnails scale proportionally (max ~84px).
+* **Custom Enlarge Hover:** Hovering shows a dark scrim with a diamond-flower icon (`✦`) and text *"Click to enlarge"*.
+* **Lightbox Animation:** Snappy, crisp scale-up animation (~0.3s bounce) to full screen, click anywhere to shrink back down.
+
+#### Data Templates
+* **Character Template:** Reference Images (800x800 square hint) → Name, Role in Story, Goal, Age/Sex (side-by-side), Physical Description, Typical Attire, Personality, Occupation, Habits/Mannerisms, Background, Internal Conflicts, External Conflicts, Tags (items carried, race/regime, origin, comma-separated), Additional Notes.
+* **Location Template:** Reference Images → Name of Setting, Location, Role in Story, Related Characters, Season/Weather, Unique Features, Description, Sights, Sounds, Smells, Additional Notes.
+* **Item Template:** Reference Images → Name of Item, Point in Story → *[Grouped Description: Looks, Sounds, Effects, Potential Weaknesses]* → *[Grouped Origin: Who designed it? Why?]* → Additional Notes.
+* **Brain Dump:** Single running continuous text space per book.
+
+---
+
+## Technical Backlog & Roadmap
+
+### Phase 2: Production Backend Migration (V2)
+1. **Backend Integration:** Replace client-side `localStorage` with a Supabase / Postgres database and real authentication.
+2. **Hosting:** Deploy static assets to Vercel/Netlify.
+3. **Cross-Device Sync:** Enable user session persistence across PC, tablet, and mobile browsers.
+
+### Phase 3: AI Reading Comprehension & Memory Engine (V2)
+1. **Coreference Resolution:** Evolve string-matching to real AI context tracking (e.g., recognizing "She" or nicknames refer to Katherine).
+2. **AI Assistance Preferences Settings:**
+  * Mode A: *Check in every time* (AI prompts user to confirm character/world updates).
+  * Mode B: *Apply automatically* (AI updates profiles on the fly without interrupting flow state).
+  * Mode C: *Review on save* (AI queues up a list of suggested updates upon saving or during autosave).
+3. **Autosave Engine:** Timer-based autosave options (15, 20, 30 minutes) wired to the review engine.

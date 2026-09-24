@@ -1,0 +1,2607 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Marginalia</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;1,400&family=Karla:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #E3E7E6; --bg-deep: #D6DCDA; --paper: #F7F4EC; --paper-edge: #ECE7D9;
+    --ink: #2B302C; --ink-soft: #565F58; --ink-faint: #8B9289;
+    --slate: #5C7380; --slate-deep: #435560; --moss: #7C8B6F;
+    --rust: #A56A5D; --rust-deep: #8A5347;
+    --line: rgba(43, 48, 44, 0.12); --shadow: rgba(60, 68, 62, 0.14);
+    --font-serif: 'Lora', Georgia, serif; --font-sans: 'Karla', -apple-system, sans-serif;
+  }
+  :root:not([data-theme="light"]) {
+    @media (prefers-color-scheme: dark) {
+      --bg: #1E2523; --bg-deep: #171C1B; --paper: #262E2B; --paper-edge: #2F3733;
+      --ink: #E7E9E3; --ink-soft: #AEB6AC; --ink-faint: #737C74;
+      --slate: #8FAEBC; --slate-deep: #A9C4D0; --moss: #9CAC8C;
+      --rust: #C98D7F; --rust-deep: #D9A899;
+      --line: rgba(231, 233, 227, 0.1); --shadow: rgba(0, 0, 0, 0.35);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #1E2523; --bg-deep: #171C1B; --paper: #262E2B; --paper-edge: #2F3733;
+    --ink: #E7E9E3; --ink-soft: #AEB6AC; --ink-faint: #737C74;
+    --slate: #8FAEBC; --slate-deep: #A9C4D0; --moss: #9CAC8C;
+    --rust: #C98D7F; --rust-deep: #D9A899;
+    --line: rgba(231, 233, 227, 0.1); --shadow: rgba(0, 0, 0, 0.35);
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--ink); font-family: var(--font-sans); height: 100%; }
+  body {
+    display: flex; min-height: 100vh;
+    background-image:
+      radial-gradient(ellipse at top left, var(--bg-deep) 0%, transparent 55%),
+      radial-gradient(ellipse at bottom right, var(--bg-deep) 0%, transparent 60%);
+  }
+  button { font-family: var(--font-sans); }
+
+  /* ---------- Side Nav ---------- */
+  .nav {
+    position: relative; width: 232px; flex-shrink: 0; background: var(--bg-deep);
+    border-right: 1px solid var(--line); display: flex; flex-direction: column;
+    padding: 28px 18px; overflow-y: auto; overflow-x: hidden; z-index: 5;
+    transition: width 0.22s ease, padding 0.22s ease;
+  }
+  .nav.collapsed { width: 72px; padding: 28px 12px; }
+  .nav-text { transition: opacity 0.12s ease; }
+  .nav.collapsed .nav-text,
+  .nav.collapsed .brand-sub,
+  .nav.collapsed .nav-label,
+  .nav.collapsed .nav-empty,
+  .nav.collapsed .nav-footer span:not(.theme-toggle),
+  .nav.collapsed .brand-full { display: none; }
+  .nav.collapsed .brand-mark { display: inline; }
+  .brand-mark { display: none; }
+  .nav-top-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 2px; }
+  .nav-collapse-btn {
+    background: transparent; border: 1px solid var(--line); color: var(--ink-faint); border-radius: 6px;
+    width: 22px; height: 22px; display: flex; align-items: center; justify-content: center;
+    cursor: pointer; font-size: 0.75rem; flex-shrink: 0; position: relative; z-index: 2;
+  }
+  .nav-collapse-btn:hover { color: var(--ink); border-color: var(--ink-faint); }
+  .nav.collapsed .nav-item,
+  .nav.collapsed .nav-subitem,
+  .nav.collapsed .nav-current,
+  .nav.collapsed .nav-project-nav { justify-content: center; }
+  .nav.collapsed .nav-current-title { display: none; }
+  .nav.collapsed .nav-btn span.btn-text { display: none; }
+  .nav.collapsed .nav-footer { flex-direction: column; gap: 10px; }
+  .nav.collapsed .theme-toggle { margin-left: 0; }
+  .nav-rain { position: absolute; inset: 0; pointer-events: none; opacity: 0.5; overflow: hidden; }
+  .nav-rain span.p-bar {
+    position: absolute; top: -20%; width: 1px; height: 60px;
+    background: linear-gradient(to bottom, transparent, currentColor, transparent);
+    opacity: 0.35; animation: fall linear infinite;
+  }
+  .nav-rain span.p-drip {
+    position: absolute; top: -20%; width: 2px; border-radius: 0 0 3px 3px;
+    background: linear-gradient(to bottom, transparent, currentColor);
+    opacity: 0.45; animation: fall linear infinite;
+  }
+  .nav-rain span.p-dot {
+    position: absolute; border-radius: 50%; background: currentColor; opacity: 0.55;
+  }
+  .nav-rain span.p-dot.rise { bottom: -10%; animation: riseUp linear infinite; }
+  .nav-rain span.p-dot.sway { top: -10%; animation: swayDown linear infinite; }
+  .nav-rain span.p-fog {
+    position: absolute; border-radius: 50%; background: currentColor; filter: blur(7px);
+    opacity: 0.22; animation: driftX linear infinite;
+  }
+  .deco-overlay { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+  .deco-sweep { position: absolute; inset: -20% -20%; opacity: 0.5;
+    background: repeating-linear-gradient(100deg, transparent 0 22px, currentColor 22px 24px, transparent 24px 46px);
+    color: var(--ink-faint); animation: blindSweep 10s linear infinite;
+  }
+  .deco-scanline { position: absolute; left: 0; right: 0; height: 2px; background: currentColor; opacity: 0.4; animation: scanMove 4.5s linear infinite; }
+  .deco-castle { position: absolute; left: 2px; bottom: 0; opacity: 0.85; }
+  @keyframes fall { to { transform: translateY(140vh); } }
+  @keyframes riseUp { 0% { transform: translateY(0); opacity: 0; } 12% { opacity: 0.6; } 100% { transform: translateY(-120vh); opacity: 0; } }
+  @keyframes swayDown {
+    0% { transform: translate(0, -10%) rotate(0deg); opacity: 0; }
+    12% { opacity: 0.6; }
+    50% { transform: translate(var(--dx, 16px), 60vh) rotate(140deg); }
+    100% { transform: translate(calc(var(--dx, 16px) * -1), 140vh) rotate(280deg); opacity: 0.3; }
+  }
+  @keyframes driftX { 0% { transform: translateX(-40%); opacity: 0; } 15% { opacity: 0.22; } 85% { opacity: 0.22; } 100% { transform: translateX(140%); opacity: 0; } }
+  @keyframes blindSweep { 0% { background-position: 0 0; } 100% { background-position: 200px 0; } }
+  @keyframes scanMove { 0% { top: -5%; } 100% { top: 105%; } }
+  @media (prefers-reduced-motion: reduce) {
+    .nav-rain span, .deco-sweep, .deco-scanline { animation: none !important; display: none; }
+  }
+
+  .brand { position: relative; z-index: 1; font-family: var(--font-serif); font-style: italic; font-size: 1.5rem; color: var(--ink); margin: 4px 4px 2px; }
+  .brand-sub { position: relative; z-index: 1; font-size: 0.72rem; color: var(--ink-faint); margin: 0 4px 22px; line-height: 1.5; }
+
+  .nav-project-block { position: relative; z-index: 1; margin-bottom: 22px; display: none; }
+  .nav-project-block.show { display: block; }
+  .nav-project-nav { display: flex; gap: 6px; margin-bottom: 12px; }
+  .nav-btn {
+    flex: 1; display: flex; align-items: center; justify-content: center; gap: 5px;
+    font-size: 0.72rem; color: var(--ink-soft); background: var(--paper-edge);
+    border: 1px solid var(--line); border-radius: 6px; padding: 6px 4px; cursor: pointer;
+  }
+  .nav-btn:hover { color: var(--ink); border-color: var(--ink-faint); }
+
+  .nav-current {
+    display: flex; align-items: center; gap: 8px; padding: 10px 10px; cursor: pointer;
+    background: var(--paper); border-radius: 7px 7px 0 0; box-shadow: inset 2px 0 0 var(--moss);
+    transition: background 0.15s ease;
+  }
+  .nav-current:hover { background: var(--paper-edge); }
+  .nav-current.only-radius { border-radius: 7px; }
+  .nav-current-cover { width: 22px; height: 30px; border-radius: 2px; background: var(--moss); background-size: cover; background-position: center; flex-shrink: 0; }
+  .nav-current-title { font-family: var(--font-serif); font-size: 0.9rem; color: var(--ink); line-height: 1.25; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; line-clamp: 2; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+
+  .nav-subitems { background: var(--paper); border-radius: 0 0 7px 7px; padding: 4px 6px 8px; box-shadow: inset 2px 0 0 var(--moss); }
+  .nav-subitem {
+    display: flex; align-items: center; gap: 8px; padding: 6px 10px 6px 20px; border-radius: 6px;
+    font-size: 0.82rem; color: var(--ink-soft); cursor: pointer; transition: background 0.15s ease, color 0.15s ease;
+  }
+  .nav-subitem:hover { background: var(--bg-deep); color: var(--ink); }
+  .nav-subitem.active { background: var(--bg-deep); color: var(--ink); font-weight: 600; }
+  .nav-subitem .sicon { width: 16px; text-align: center; flex-shrink: 0; color: var(--ink-faint); font-family: var(--font-serif); font-size: 0.95rem; line-height: 1; }
+  .nav-subitem.active .sicon { color: var(--slate-deep); }
+
+  .nav-section { position: relative; z-index: 1; margin-bottom: 26px; }
+  .nav-label { font-size: 0.68rem; color: var(--ink-faint); margin: 0 8px 10px; letter-spacing: 0.02em; }
+  .nav-item { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 7px; color: var(--ink-soft); font-size: 0.88rem; cursor: pointer; transition: background 0.15s ease, color 0.15s ease; }
+  .nav-item:hover { background: var(--paper-edge); color: var(--ink); }
+  .nav-item.active { background: var(--paper); color: var(--ink); box-shadow: inset 2px 0 0 var(--moss); }
+  .nav-item .dot { width: 5px; height: 5px; border-radius: 50%; background: var(--ink-faint); flex-shrink: 0; }
+  .nav-item.active .dot { background: var(--moss); }
+  .nav-empty { font-size: 0.78rem; color: var(--ink-faint); font-style: italic; padding: 6px 10px; line-height: 1.5; }
+
+  .nav-footer { position: relative; z-index: 1; margin-top: auto; padding-top: 16px; border-top: 1px solid var(--line); font-size: 0.76rem; color: var(--ink-faint); display: flex; flex-direction: column; gap: 10px; }
+  .nav-footer-row { display: flex; align-items: center; gap: 8px; }
+  .theme-select {
+    width: 100%; font-family: var(--font-sans); font-size: 0.76rem; color: var(--ink-soft); background: var(--paper);
+    border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; cursor: pointer;
+  }
+  .theme-select:hover { border-color: var(--ink-faint); }
+  .theme-toggle { margin-left: auto; border: 1px solid var(--line); background: transparent; color: var(--ink-soft); font-size: 0.72rem; padding: 4px 8px; border-radius: 6px; cursor: pointer; }
+  .theme-toggle:hover { color: var(--ink); border-color: var(--ink-faint); }
+
+  /* ---------- Main ---------- */
+  .main { flex: 1; padding: 56px 64px 64px; max-width: 1180px; position: relative; }
+  .view { display: none; }
+  .view.show { display: block; }
+  .view.fading-out { animation: fadeOut 0.18s ease forwards; }
+  .view.fading-in { animation: fadeIn 0.25s ease; }
+  @keyframes fadeOut { to { opacity: 0; transform: scale(0.985); } }
+  @keyframes fadeIn { from { opacity: 0; transform: scale(0.985); } to { opacity: 1; transform: scale(1); } }
+
+  .header { margin-bottom: 44px; }
+  .header h1 { font-family: var(--font-serif); font-weight: 500; font-size: 2rem; margin: 0 0 8px; color: var(--ink); }
+  .header p { margin: 0; color: var(--ink-soft); font-size: 0.95rem; max-width: 46ch; line-height: 1.6; }
+
+  .shelf-meta { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 18px; }
+  .shelf-meta span { font-size: 0.8rem; color: var(--ink-faint); }
+
+  /* ---------- Library grid ---------- */
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 28px 24px; }
+  .book { cursor: pointer; text-align: left; position: relative; }
+  .book.expanding { visibility: hidden; }
+  .book-cover-hitbox { position: relative; }
+  .book-cover {
+    position: relative; width: 100%; aspect-ratio: 2 / 3; border-radius: 4px 7px 7px 4px;
+    background: var(--paper); border: 1px solid var(--paper-edge);
+    box-shadow: 0 1px 2px var(--shadow), inset 3px 0 0 var(--spine, var(--moss));
+    background-size: cover; background-position: center;
+    display: flex; align-items: center; justify-content: center; overflow: hidden;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+  .book:hover .book-cover { transform: scale(1.045) translateY(-2px); box-shadow: 0 14px 26px var(--shadow), inset 3px 0 0 var(--spine, var(--moss)); }
+  .book-cover.placeholder .cover-hint { font-size: 0.66rem; color: var(--ink-faint); text-align: center; padding: 0 14px; line-height: 1.5; }
+  .book-cover.placeholder .cover-icon { font-family: var(--font-serif); font-size: 1.6rem; color: var(--ink-faint); display: block; margin-bottom: 6px; }
+  .book-title { margin-top: 10px; font-family: var(--font-serif); font-size: 0.94rem; color: var(--ink); line-height: 1.3; transition: color 0.15s ease; }
+  .book:hover .book-title { color: var(--slate-deep); }
+  .book-meta { font-size: 0.7rem; color: var(--ink-faint); margin-top: 2px; }
+  .book-delete {
+    position: absolute; top: 6px; right: 6px; width: 26px; height: 26px; border-radius: 50%;
+    background: rgba(20,22,20,0.55); color: #F2EFE6; border: none; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; font-size: 0.85rem;
+    opacity: 0; transition: opacity 0.15s ease, background 0.15s ease; z-index: 2;
+  }
+  .book:hover .book-delete { opacity: 1; }
+  .book-delete:hover { background: var(--rust-deep); }
+
+  .card.add {
+    background: transparent; border: 1.5px dashed var(--line); border-radius: 4px 7px 7px 4px;
+    aspect-ratio: 2 / 3; display: flex; align-items: center; justify-content: center;
+    color: var(--ink-faint); cursor: pointer; transition: border-color 0.15s ease, color 0.15s ease, transform 0.2s ease;
+  }
+  .card.add:hover { border-color: var(--slate); color: var(--slate-deep); transform: translateY(-2px); }
+  .add-inner { text-align: center; }
+  .add-plus { font-family: var(--font-serif); font-size: 1.9rem; line-height: 1; display: block; margin-bottom: 8px; }
+  .add-label { font-size: 0.8rem; padding: 0 10px; }
+
+  /* ---------- FLIP expand ghost ---------- */
+  #expandGhost {
+    position: fixed; z-index: 50; border-radius: 4px 7px 7px 4px; background-size: cover; background-position: center;
+    box-shadow: 0 30px 70px rgba(20,24,20,0.35); overflow: hidden; pointer-events: none;
+    transition: top 0.4s cubic-bezier(.4,0,.2,1), left 0.4s cubic-bezier(.4,0,.2,1),
+                width 0.4s cubic-bezier(.4,0,.2,1), height 0.4s cubic-bezier(.4,0,.2,1),
+                border-radius 0.4s cubic-bezier(.4,0,.2,1), opacity 0.25s ease;
+    display: none;
+  }
+  #expandGhost.show { display: block; }
+  @media (prefers-reduced-motion: reduce) { #expandGhost { transition: opacity 0.15s ease; } }
+
+  /* ---------- Project workspace ---------- */
+  .project-header { display: flex; align-items: flex-start; gap: 20px; margin-bottom: 32px; }
+  .project-cover-mini {
+    width: 66px; height: 99px; border-radius: 3px 6px 6px 3px; background: var(--bg);
+    box-shadow: inset 3px 0 0 var(--spine, var(--moss)); background-size: cover; background-position: center;
+    flex-shrink: 0; cursor: pointer; border: 1px solid var(--paper-edge);
+  }
+  .project-title-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+  .project-title-input {
+    font-family: var(--font-serif); font-weight: 500; font-size: 1.9rem; color: var(--ink);
+    border: none; background: transparent; outline: none; border-bottom: 1px solid transparent; padding: 2px 0;
+    max-width: 480px;
+  }
+  .project-title-input:focus { border-bottom: 1px solid var(--slate); }
+  .project-sub { font-size: 0.82rem; color: var(--ink-faint); margin-top: 4px; }
+  .project-theme-tag { font-size: 0.7rem; color: var(--slate-deep); background: var(--paper); border: 1px solid var(--paper-edge); border-radius: 20px; padding: 3px 10px; }
+  .delete-book-link { background: none; border: none; color: var(--ink-faint); font-size: 0.76rem; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; padding: 0; }
+  .delete-book-link:hover { color: var(--rust-deep); }
+
+  .resume-banner {
+    display: none; align-items: center; gap: 14px; background: var(--paper); border: 1px solid var(--paper-edge);
+    border-radius: 8px; padding: 14px 18px; margin-bottom: 26px; cursor: pointer; box-shadow: 0 1px 2px var(--shadow);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .resume-banner.show { display: flex; }
+  .resume-banner:hover { transform: translateY(-2px); box-shadow: 0 8px 18px var(--shadow); }
+  .resume-icon { font-family: var(--font-serif); font-size: 1.1rem; color: var(--moss); flex-shrink: 0; }
+  .resume-text { flex: 1; }
+  .resume-label { font-size: 0.68rem; color: var(--ink-faint); letter-spacing: 0.02em; margin-bottom: 3px; }
+  .resume-name { font-family: var(--font-serif); font-size: 1rem; color: var(--ink); }
+  .resume-time { font-size: 0.72rem; color: var(--ink-faint); flex-shrink: 0; }
+
+  .category-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 20px; }
+  .cat-card {
+    background: var(--paper); border: 1px solid var(--paper-edge); border-radius: 8px;
+    padding: 22px 20px; cursor: pointer; box-shadow: 0 1px 2px var(--shadow);
+    transition: transform 0.18s ease, box-shadow 0.18s ease; min-height: 128px;
+    display: flex; flex-direction: column; justify-content: space-between;
+  }
+  .cat-card:hover { transform: translateY(-3px); box-shadow: 0 10px 22px var(--shadow); }
+  .cat-icon { font-family: var(--font-serif); font-size: 1.3rem; color: var(--moss); }
+  .cat-name { font-family: var(--font-serif); font-size: 1.05rem; margin-top: 12px; color: var(--ink); }
+  .cat-count { font-size: 0.74rem; color: var(--ink-faint); margin-top: 4px; }
+
+  /* ---------- Hub view ---------- */
+  .hub-crumb { font-size: 0.78rem; color: var(--ink-faint); margin-bottom: 10px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+  .hub-crumb:hover { color: var(--slate-deep); }
+  .hub-header { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+  .hub-icon { font-family: var(--font-serif); font-size: 1.5rem; color: var(--moss); }
+  .hub-header h1 { font-family: var(--font-serif); font-weight: 500; font-size: 1.7rem; margin: 0; color: var(--ink); }
+  .hub-desc { color: var(--ink-soft); font-size: 0.92rem; max-width: 56ch; line-height: 1.6; margin: 0 0 32px; }
+
+  .hub-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 18px; }
+  .hub-entry-card {
+    background: var(--paper); border: 1px solid var(--paper-edge); border-radius: 8px; padding: 18px;
+    cursor: pointer; box-shadow: 0 1px 2px var(--shadow); min-height: 108px; display: flex; flex-direction: column; gap: 8px;
+    transition: transform 0.18s ease, box-shadow 0.18s ease;
+  }
+  .hub-entry-card:hover { transform: translateY(-3px); box-shadow: 0 10px 22px var(--shadow); }
+  .hub-entry-name { font-family: var(--font-serif); font-size: 1.02rem; color: var(--ink); }
+  .hub-entry-snippet { font-size: 0.78rem; color: var(--ink-soft); line-height: 1.5; overflow: hidden; display: -webkit-box; line-clamp: 3; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
+  .hub-entry-empty { font-size: 0.78rem; color: var(--ink-faint); font-style: italic; }
+  .hub-entry-thumb { width: 100%; height: 80px; border-radius: 6px; background-size: cover; background-position: center top; background-color: var(--bg); margin-bottom: 2px; }
+
+  .hub-add-card {
+    border: 1.5px dashed var(--line); border-radius: 8px; min-height: 108px; display: flex; align-items: center;
+    justify-content: center; color: var(--ink-faint); cursor: pointer; transition: border-color 0.15s ease, color 0.15s ease, transform 0.18s ease;
+  }
+  .hub-add-card:hover { border-color: var(--slate); color: var(--slate-deep); transform: translateY(-2px); }
+
+  .hub-brain-wrap textarea {
+    width: 100%; min-height: 46vh; font-family: var(--font-sans); font-size: 0.95rem; line-height: 1.6;
+    padding: 20px; border-radius: 10px; border: 1px solid var(--paper-edge); background: var(--paper); color: var(--ink); resize: vertical;
+  }
+  .hub-brain-wrap textarea:focus { outline: 2px solid var(--slate); outline-offset: 2px; }
+  .hub-brain-save { margin-top: 14px; }
+
+  .global-save-bar {
+    display: flex; align-items: center; justify-content: space-between; gap: 14px;
+    min-height: 38px; margin-bottom: 18px; padding: 8px 12px 8px 14px;
+    border: 1px solid var(--paper-edge); border-radius: 8px; background: var(--paper);
+    color: var(--ink-soft); font-size: 0.78rem; box-shadow: 0 1px 2px var(--shadow);
+  }
+  .global-save-message { display: inline-flex; align-items: center; gap: 8px; }
+  .global-save-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--moss); flex: 0 0 auto; }
+  .global-save-bar.is-dirty .global-save-dot { background: var(--rust); }
+  .global-save-bar.is-saving .global-save-dot { background: var(--slate); }
+  .global-save-button { padding: 5px 10px; font-size: 0.75rem; }
+
+  /* ---------- Generic modal ---------- */
+  .overlay { position: fixed; inset: 0; background: rgba(30, 34, 31, 0.38); display: none; align-items: center; justify-content: center; z-index: 30; }
+  .overlay.show { display: flex; }
+  .modal { background: var(--paper); border-radius: 10px; padding: 32px; width: 460px; max-width: 90vw; max-height: 84vh; overflow-y: auto; box-shadow: 0 24px 60px rgba(20, 24, 20, 0.28); }
+  .modal.small { width: 380px; }
+  .modal.wide { width: 640px; }
+  .modal.writer {
+    width: 1100px; max-width: 94vw; height: 86vh; display: flex; flex-direction: column;
+    position: relative; overflow: hidden;
+  }
+  .writer-body { display: flex; gap: 22px; flex: 1; min-height: 0; }
+  .writer-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+
+  .writer-sidebar {
+    width: 250px; flex-shrink: 0; border-left: 1px solid var(--line); padding-left: 18px;
+    display: flex; flex-direction: column; min-height: 0;
+  }
+  .writer-drawer-handle { display: none; }
+  .writer-sidebar-header { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 10px; flex-shrink: 0; }
+  .writer-sidebar-title { font-family: var(--font-serif); font-size: 0.92rem; color: var(--ink); }
+  .writer-sidebar-count { font-size: 0.72rem; color: var(--ink-faint); }
+  .writer-filter-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; flex-shrink: 0; }
+  .chip {
+    font-family: var(--font-sans); font-size: 0.7rem; padding: 4px 11px; border-radius: 20px;
+    border: 1px solid var(--line); background: var(--bg); color: var(--ink-soft); cursor: pointer;
+  }
+  .chip:hover { color: var(--ink); border-color: var(--ink-faint); }
+  .chip.active { background: var(--slate-deep); color: var(--paper); border-color: var(--slate-deep); }
+
+  .writer-entity-list { overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 10px; min-height: 0; }
+  .writer-entity-empty { font-size: 0.78rem; color: var(--ink-faint); font-style: italic; line-height: 1.5; padding: 4px 2px; }
+  .writer-entity-card {
+    background: var(--paper); border: 1px solid var(--paper-edge); border-radius: 8px; padding: 12px 13px;
+    cursor: pointer; transition: transform 0.15s ease, box-shadow 0.15s ease; flex-shrink: 0;
+  }
+  .writer-entity-card:hover { transform: translateY(-2px); box-shadow: 0 8px 18px var(--shadow); }
+  .we-thumb { width: 100%; height: 56px; border-radius: 6px; background-size: cover; background-position: center top; margin-bottom: 8px; background-color: var(--bg); }
+  .we-type { font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--slate-deep); margin-bottom: 2px; }
+  .we-name { font-family: var(--font-serif); font-size: 0.96rem; color: var(--ink); margin-bottom: 5px; }
+  .we-line { font-size: 0.75rem; color: var(--ink-soft); line-height: 1.45; margin-bottom: 3px; overflow: hidden; display: -webkit-box; line-clamp: 2; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+  .we-line b { color: var(--ink-faint); font-weight: 600; }
+
+  @media (max-width: 860px) {
+    .modal.writer { width: 94vw; height: 88vh; }
+    .writer-body { flex-direction: column; }
+    .writer-sidebar {
+      position: absolute; left: 0; right: 0; bottom: 0; width: auto; border-left: none;
+      padding: 0 20px 20px; background: var(--paper); border-radius: 16px 16px 0 0;
+      box-shadow: 0 -12px 30px rgba(20,16,10,0.18); max-height: 68%; z-index: 6;
+      transform: translateY(calc(100% - 54px));
+      transition: transform 0.28s cubic-bezier(.2, 1, .3, 1);
+    }
+    .writer-sidebar.open { transform: translateY(0); }
+    .writer-drawer-handle {
+      display: block; width: 38px; height: 4px; background: var(--ink-faint); opacity: 0.4;
+      border-radius: 3px; margin: 10px auto 8px; cursor: grab; flex-shrink: 0; touch-action: none;
+    }
+    .writer-sidebar-header { padding: 0 2px; }
+  }
+  @media (prefers-reduced-motion: reduce) { .writer-sidebar { transition: none !important; } }
+  .writer-title-input {
+    font-family: var(--font-serif); font-weight: 500; font-size: 1.4rem; color: var(--ink);
+    border: none; background: transparent; outline: none; padding: 2px 0 10px; width: 100%;
+    border-bottom: 1px solid var(--line);
+  }
+  .writer-title-input:focus { border-bottom-color: var(--slate); }
+
+  .rt-toolbar {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 4px; padding: 8px;
+    background: var(--bg); border: 1px solid var(--line); border-bottom: none; border-radius: 8px 8px 0 0;
+    margin-top: 14px;
+  }
+  .rt-toolbar button, .rt-toolbar select {
+    font-family: var(--font-sans); font-size: 0.78rem; background: var(--paper); color: var(--ink-soft);
+    border: 1px solid var(--line); border-radius: 5px; padding: 5px 8px; cursor: pointer; min-width: 30px;
+  }
+  .rt-toolbar button:hover, .rt-toolbar select:hover { color: var(--ink); border-color: var(--ink-faint); }
+  .rt-toolbar button.active { background: var(--slate-deep); color: var(--paper); border-color: var(--slate-deep); }
+  .rt-toolbar input[type="color"] {
+    width: 30px; height: 28px; padding: 2px; border: 1px solid var(--line); border-radius: 5px;
+    background: var(--paper); cursor: pointer;
+  }
+  .rt-divider { width: 1px; align-self: stretch; background: var(--line); margin: 2px 4px; }
+
+  .rich-editor {
+    flex: 1; min-height: 200px; overflow-y: auto; padding: 18px 20px;
+    border: 1px solid var(--line); border-radius: 0 0 8px 8px; background: var(--paper);
+    font-family: var(--font-sans); font-size: 0.96rem; line-height: 1.75; color: var(--ink);
+  }
+  .rich-editor:focus { outline: 2px solid var(--slate); outline-offset: -2px; }
+  .rich-editor:empty::before { content: attr(data-placeholder); color: var(--ink-faint); pointer-events: none; }
+  .rich-editor h1 { font-family: var(--font-serif); font-size: 1.5rem; margin: 0.6em 0 0.35em; color: var(--ink); }
+  .rich-editor h2 { font-family: var(--font-serif); font-size: 1.25rem; margin: 0.6em 0 0.35em; color: var(--ink); }
+  .rich-editor h3 { font-family: var(--font-serif); font-size: 1.08rem; margin: 0.6em 0 0.35em; color: var(--ink); }
+  .rich-editor p { margin: 0 0 0.9em; }
+  .rich-editor ul, .rich-editor ol { padding-left: 1.4em; margin: 0 0 0.9em; }
+  .field-row { display: flex; gap: 14px; }
+  .field-row .field { flex: 1; }
+  .field-group { margin-bottom: 18px; }
+  .field-group-label { font-size: 0.8rem; color: var(--ink-soft); margin-bottom: 10px; font-weight: 600; }
+  .field-group-sub { margin-left: 14px; padding-left: 12px; border-left: 2px solid var(--paper-edge); }
+  .char-image-grid { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; }
+  .char-image-thumb {
+    max-width: 84px; max-height: 84px; border-radius: 7px; position: relative; flex-shrink: 0;
+    display: flex; align-items: flex-end;
+  }
+  .char-image-thumb img {
+    display: block; max-width: 84px; max-height: 84px; width: auto; height: auto;
+    border-radius: 7px; border: 1px solid var(--paper-edge); cursor: pointer; background: var(--bg);
+  }
+  .char-image-thumb .zoom-hint {
+    position: absolute; inset: 0; border-radius: 7px; background: rgba(15,16,15,0.5); color: #F4F1E8;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+    opacity: 0; transition: opacity 0.15s ease; pointer-events: none;
+  }
+  .char-image-thumb:hover .zoom-hint { opacity: 1; }
+  .zoom-hint .zoom-icon { font-family: var(--font-serif); font-size: 1.05rem; line-height: 1; }
+  .zoom-hint .zoom-text { font-size: 0.52rem; letter-spacing: 0.02em; text-align: center; padding: 0 4px; }
+  .char-image-thumb .remove-img {
+    position: absolute; top: -6px; right: -6px; width: 20px; height: 20px; border-radius: 50%;
+    background: rgba(20,22,20,0.6); color: #F2EFE6; border: none; cursor: pointer; font-size: 0.72rem;
+    display: flex; align-items: center; justify-content: center; line-height: 1; z-index: 1;
+  }
+  .char-image-thumb .remove-img:hover { background: var(--rust-deep); }
+  .char-image-add {
+    width: 74px; height: 74px; border-radius: 7px; border: 1.5px dashed var(--line); flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center; color: var(--ink-faint); cursor: pointer;
+    font-family: var(--font-serif); font-size: 1.4rem; transition: border-color 0.15s ease, color 0.15s ease;
+  }
+  .char-image-add:hover { border-color: var(--slate); color: var(--slate-deep); }
+
+  .img-lightbox {
+    position: fixed; inset: 0; background: rgba(15, 16, 15, 0.82); z-index: 200;
+    display: flex; align-items: center; justify-content: center; padding: 40px; cursor: zoom-out;
+    opacity: 0; visibility: hidden; transition: opacity 0.22s ease, visibility 0s linear 0.22s;
+  }
+  .img-lightbox.show { opacity: 1; visibility: visible; transition: opacity 0.22s ease, visibility 0s linear 0s; }
+  .img-lightbox img {
+    max-width: 90vw; max-height: 90vh; border-radius: 8px; box-shadow: 0 30px 70px rgba(0,0,0,0.4);
+    transform: scale(0.82); transition: transform 0.32s cubic-bezier(.2, 1.15, .3, 1);
+  }
+  .img-lightbox.show img { transform: scale(1); }
+  @media (prefers-reduced-motion: reduce) {
+    .img-lightbox, .img-lightbox img { transition: none !important; }
+  }
+  .modal h2 { font-family: var(--font-serif); font-weight: 500; font-size: 1.3rem; margin: 0 0 6px; }
+  .modal p.hint { font-size: 0.82rem; color: var(--ink-faint); margin: 0 0 20px; line-height: 1.5; }
+  .field { margin-bottom: 16px; }
+  .field label { display: block; font-size: 0.76rem; color: var(--ink-soft); margin-bottom: 6px; }
+  .field input, .field textarea, .field select { width: 100%; font-family: var(--font-sans); font-size: 0.9rem; padding: 9px 11px; border-radius: 6px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); resize: vertical; cursor: pointer; }
+  .field input:focus, .field textarea:focus, .field select:focus { outline: 2px solid var(--slate); outline-offset: 1px; }
+  .swatches { display: flex; gap: 8px; margin-top: 4px; }
+  .swatch { width: 22px; height: 22px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; }
+  .swatch.selected { border-color: var(--ink); }
+  .modal-actions { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 8px; }
+  .modal-actions-right { display: flex; gap: 10px; }
+  .hidden-file { display: none; }
+
+  .btn { font-size: 0.85rem; padding: 9px 16px; border-radius: 6px; border: 1px solid transparent; cursor: pointer; }
+  .btn.primary { background: var(--slate-deep); color: var(--paper); }
+  .btn.primary:hover { background: var(--slate); }
+  .btn.ghost { background: transparent; color: var(--ink-soft); border-color: var(--line); }
+  .btn.ghost:hover { color: var(--ink); }
+  .btn.danger { background: var(--rust-deep); color: var(--paper); }
+  .btn.danger:hover { background: var(--rust); }
+
+  .focus-cover { width: 120px; height: 180px; border-radius: 4px 8px 8px 4px; background: var(--bg); box-shadow: inset 4px 0 0 var(--spine, var(--moss)); background-size: cover; background-position: center; display: flex; align-items: center; justify-content: center; border: 1px solid var(--paper-edge); }
+  .focus-cover .cover-hint { font-size: 0.62rem; color: var(--ink-faint); text-align: center; padding: 0 12px; line-height: 1.4; }
+  .focus-cover .cover-icon { font-family: var(--font-serif); font-size: 1.4rem; color: var(--ink-faint); display: block; margin-bottom: 4px; }
+  .focus-cover-edit { margin-top: 8px; font-size: 0.72rem; color: var(--slate-deep); background: none; border: none; cursor: pointer; padding: 4px 0; text-decoration: underline; text-underline-offset: 2px; }
+
+  .danger-modal-icon { font-size: 1.6rem; margin-bottom: 4px; }
+
+  .ai-mode-option {
+    display: flex; gap: 12px; align-items: flex-start; padding: 13px 14px; border: 1px solid var(--line);
+    border-radius: 9px; margin-bottom: 10px; cursor: pointer; transition: border-color 0.15s ease, background 0.15s ease;
+  }
+  .ai-mode-option:hover { border-color: var(--ink-faint); }
+  .ai-mode-option input[type="radio"] { margin-top: 3px; accent-color: var(--slate-deep); flex-shrink: 0; }
+  .ai-mode-option:has(input:checked) { border-color: var(--slate-deep); background: var(--bg); }
+  .ai-mode-title { font-family: var(--font-serif); font-size: 0.95rem; color: var(--ink); }
+  .ai-mode-desc { font-size: 0.78rem; color: var(--ink-soft); margin-top: 3px; line-height: 1.45; }
+  .ai-autosave-row { display: flex; align-items: center; gap: 9px; font-size: 0.85rem; color: var(--ink-soft); cursor: pointer; }
+  .ai-autosave-row input { accent-color: var(--slate-deep); }
+
+  @media (max-width: 720px) {
+    body { flex-direction: column; }
+    .nav { width: 100%; flex-direction: row; align-items: center; padding: 16px 20px; overflow: visible; }
+    .nav-section, .nav-footer, .brand-sub, .nav-project-block { display: none; }
+    .brand { margin: 0; }
+    .main { padding: 32px 22px; }
+  }
+
+  /* ---------- Login screen ---------- */
+  #loginScreen {
+    position: fixed; inset: 0; background: var(--bg); z-index: 100;
+    display: flex; align-items: center; justify-content: center; padding: 24px;
+    background-image: radial-gradient(ellipse at top left, var(--bg-deep) 0%, transparent 55%),
+      radial-gradient(ellipse at bottom right, var(--bg-deep) 0%, transparent 60%);
+  }
+  #loginScreen.hidden { display: none; }
+  .app-root { display: flex; min-height: 100vh; width: 100%; }
+  .app-root.hidden { display: none; }
+
+  .login-card { background: var(--paper); border-radius: 14px; padding: 40px 36px; width: 380px; max-width: 92vw; box-shadow: 0 24px 60px rgba(20,24,20,0.22); }
+  .login-brand { font-family: var(--font-serif); font-style: italic; font-size: 1.7rem; color: var(--ink); text-align: center; margin-bottom: 4px; }
+  .login-sub { text-align: center; font-size: 0.82rem; color: var(--ink-faint); margin-bottom: 26px; line-height: 1.5; }
+
+  .login-tabs { display: flex; gap: 6px; margin-bottom: 22px; background: var(--bg); border-radius: 8px; padding: 4px; }
+  .login-tab { flex: 1; text-align: center; padding: 8px; border-radius: 6px; cursor: pointer; font-size: 0.84rem; color: var(--ink-soft); transition: background 0.15s ease, color 0.15s ease; }
+  .login-tab.active { background: var(--slate-deep); color: var(--paper); }
+
+  .login-field { margin-bottom: 14px; }
+  .login-field label { display: block; font-size: 0.76rem; color: var(--ink-soft); margin-bottom: 6px; }
+  .login-field input { width: 100%; font-family: var(--font-sans); font-size: 0.9rem; padding: 10px 12px; border-radius: 7px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); }
+  .login-field input:focus { outline: 2px solid var(--slate); outline-offset: 1px; }
+
+  .login-error { font-size: 0.8rem; color: var(--rust-deep); margin: 4px 0 10px; display: none; }
+  .login-error.show { display: block; }
+
+  .login-submit { width: 100%; margin-top: 6px; padding: 11px; font-size: 0.9rem; }
+
+  .login-divider { display: flex; align-items: center; gap: 10px; margin: 26px 0 18px; color: var(--ink-faint); font-size: 0.72rem; }
+  .login-divider::before, .login-divider::after { content: ''; flex: 1; height: 1px; background: var(--line); }
+
+  .admin-bypass-box { border: 1.5px dashed var(--line); border-radius: 8px; padding: 14px 16px; text-align: center; }
+  .admin-bypass-box button { width: 100%; }
+  .admin-note { font-size: 0.68rem; color: var(--ink-faint); margin-top: 8px; line-height: 1.5; }
+
+  .session-row { display: flex; flex-direction: column; gap: 4px; font-size: 0.74rem; color: var(--ink-faint); padding-top: 10px; margin-top: 4px; border-top: 1px solid var(--line); }
+  .session-email { color: var(--ink-soft); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .logout-link { background: none; border: none; color: var(--ink-faint); font-size: 0.74rem; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; padding: 0; text-align: left; }
+  .logout-link:hover { color: var(--rust-deep); }
+  .nav.collapsed .session-row .session-email, .nav.collapsed .session-row .logout-text { display: none; }
+</style>
+</head>
+<body>
+
+  <!-- LOGIN SCREEN -->
+  <div id="loginScreen">
+    <div class="login-card">
+      <div class="login-brand">Marginalia</div>
+      <div class="login-sub">Write the story. Let the margins remember it.</div>
+
+      <div class="login-tabs">
+        <div class="login-tab active" id="tabLogin">Log in</div>
+        <div class="login-tab" id="tabSignup">Create account</div>
+      </div>
+
+      <div class="login-error" id="loginError"></div>
+
+      <div class="login-field">
+        <label for="loginEmail">Email</label>
+        <input id="loginEmail" type="email" placeholder="you@example.com" autocomplete="username">
+      </div>
+      <div class="login-field">
+        <label for="loginPassword">Password</label>
+        <input id="loginPassword" type="password" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;" autocomplete="current-password">
+      </div>
+
+      <button class="btn primary login-submit" id="loginSubmitBtn" type="button">Log in</button>
+
+      <div class="login-divider">FOR TESTING</div>
+
+      <div class="admin-bypass-box">
+        <button class="btn ghost" id="adminBypassBtn" type="button">Continue as Admin (skip login)</button>
+        <div class="admin-note">Temporary while we design &mdash; this button and the plain-text login below will be removed before real users touch this.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="app-root" id="appRoot">
+  <nav class="nav">
+    <div class="nav-rain" id="navRain"></div>
+    <div class="deco-overlay" id="decoOverlay"></div>
+    <div class="deco-castle" id="decoCastle"></div>
+    <div class="nav-top-row">
+      <div class="brand"><span class="brand-full">Marginalia</span><span class="brand-mark">M</span></div>
+      <button class="nav-collapse-btn" id="navCollapseBtn" type="button" title="Collapse sidebar">&#10094;</button>
+    </div>
+    <div class="brand-sub">Write the story.<br>Let the margins remember it.</div>
+
+    <div class="nav-project-block" id="navProjectBlock">
+      <div class="nav-project-nav">
+        <button class="nav-btn" id="navBackBtn" type="button">&larr;<span class="btn-text nav-text"> Back</span></button>
+        <button class="nav-btn" id="navHomeBtn" type="button">&#8962;<span class="btn-text nav-text"> Home</span></button>
+      </div>
+      <div class="nav-current" id="navCurrentRow">
+        <div class="nav-current-cover" id="navCurrentCover"></div>
+        <div class="nav-current-title nav-text" id="navCurrentTitle">&nbsp;</div>
+      </div>
+      <div class="nav-subitems" id="navSubitems">
+        <div class="nav-subitem" data-cat="chapters"><span class="sicon">&#9776;</span><span class="nav-text">Chapters</span></div>
+        <div class="nav-subitem" data-cat="scenes"><span class="sicon">&#10086;</span><span class="nav-text">Scenes</span></div>
+        <div class="nav-subitem" data-cat="characters"><span class="sicon">&#9737;</span><span class="nav-text">Characters</span></div>
+        <div class="nav-subitem" data-cat="locations"><span class="sicon">&#8982;</span><span class="nav-text">Locations</span></div>
+        <div class="nav-subitem" data-cat="items"><span class="sicon">&#9670;</span><span class="nav-text">Items</span></div>
+        <div class="nav-subitem" data-brain="1"><span class="sicon">&#9729;</span><span class="nav-text">Brain Dump</span></div>
+      </div>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-label">Library</div>
+      <div class="nav-item active" id="navAllProjects"><span class="dot"></span><span class="nav-text"> All projects</span></div>
+      <div class="nav-item"><span class="dot"></span><span class="nav-text"> Recently open</span></div>
+      <div class="nav-item"><span class="dot"></span><span class="nav-text"> Finished</span></div>
+      <div class="nav-item"><span class="dot"></span><span class="nav-text"> Archived</span></div>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-label">More</div>
+      <div class="nav-item" id="navAiSettings"><span class="dot"></span><span class="nav-text"> AI Assist settings</span></div>
+      <div class="nav-empty">More is still being written &mdash; this is where search will live.</div>
+    </div>
+
+    <div class="nav-footer">
+      <select class="theme-select nav-text" id="themeSelect" title="Theme"></select>
+      <div class="nav-footer-row">
+        <span class="nav-text" id="moodLabel">rainy &amp; quiet</span>
+        <button class="theme-toggle" id="themeToggle" type="button">dark</button>
+      </div>
+      <div class="session-row">
+        <span class="session-email nav-text" id="sessionEmail">&nbsp;</span>
+        <button class="logout-link nav-text" id="logoutBtn" type="button">Log out</button>
+      </div>
+    </div>
+  </nav>
+
+  <main class="main">
+    <div class="global-save-bar" id="globalSaveBar" role="status" aria-live="polite">
+      <span class="global-save-message"><span class="global-save-dot" aria-hidden="true"></span><span id="globalSaveMessage">All changes saved</span></span>
+      <button class="btn ghost global-save-button" id="globalSaveBtn" type="button">Save now</button>
+    </div>
+
+    <!-- LIBRARY VIEW -->
+    <div class="view show" id="libraryView">
+      <div class="header">
+        <h1>Your library</h1>
+        <p>Every project is a book in progress. Open one to keep writing, or start a new one whenever a story is ready.</p>
+      </div>
+      <div class="shelf-meta">
+        <span id="shelfCount">0 projects</span>
+        <span>sorted by last opened</span>
+      </div>
+      <div class="grid" id="grid">
+        <div class="card add" id="addCard">
+          <div class="add-inner">
+            <span class="add-plus">+</span>
+            <span class="add-label">Start a new book</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PROJECT OVERVIEW VIEW -->
+    <div class="view" id="projectView">
+      <div class="project-header">
+        <div class="project-cover-mini" id="projectCoverMini" title="Change cover"></div>
+        <div>
+          <div class="project-title-row">
+            <input class="project-title-input" id="projectTitleInput" maxlength="60">
+            <span class="project-theme-tag" id="projectThemeTag"></span>
+            <button class="delete-book-link" id="deleteBookLink" type="button">Delete this book</button>
+          </div>
+          <div class="project-sub">Fill these in as you go &mdash; the more complete they are, the better the tool can guide you. Change the book's theme anytime from the sidebar.</div>
+        </div>
+      </div>
+
+      <div class="resume-banner" id="resumeBanner">
+        <div class="resume-icon">&#8618;</div>
+        <div class="resume-text">
+          <div class="resume-label">RESUME WHERE YOU LEFT OFF</div>
+          <div class="resume-name" id="resumeName">&nbsp;</div>
+        </div>
+        <div class="resume-time" id="resumeTime"></div>
+      </div>
+
+      <div class="category-grid">
+        <div class="cat-card" data-cat="chapters">
+          <div class="cat-icon">&#9776;</div>
+          <div><div class="cat-name">Add a Chapter</div><div class="cat-count" data-count="chapters">0 chapters</div></div>
+        </div>
+        <div class="cat-card" data-cat="scenes">
+          <div class="cat-icon">&#10086;</div>
+          <div><div class="cat-name">Add a Scene</div><div class="cat-count" data-count="scenes">0 scenes</div></div>
+        </div>
+        <div class="cat-card" data-cat="characters">
+          <div class="cat-icon">&#9737;</div>
+          <div><div class="cat-name">Add a Character</div><div class="cat-count" data-count="characters">0 characters</div></div>
+        </div>
+        <div class="cat-card" data-cat="locations">
+          <div class="cat-icon">&#8982;</div>
+          <div><div class="cat-name">Add a Location</div><div class="cat-count" data-count="locations">0 locations</div></div>
+        </div>
+        <div class="cat-card" data-cat="items">
+          <div class="cat-icon">&#9670;</div>
+          <div><div class="cat-name">Add an Item</div><div class="cat-count" data-count="items">0 items</div></div>
+        </div>
+        <div class="cat-card" id="brainDumpCard">
+          <div class="cat-icon">&#9729;</div>
+          <div><div class="cat-name">Brain Dump</div><div class="cat-count" id="brainDumpStatus">empty</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- HUB VIEW (chapters / scenes / characters / locations / items) -->
+    <div class="view" id="hubView">
+      <div class="hub-crumb" id="hubCrumb">&larr; <span id="hubCrumbTitle">Back to book</span></div>
+      <div class="hub-header">
+        <div class="hub-icon" id="hubIcon">&#9776;</div>
+        <h1 id="hubTitle">Chapters</h1>
+      </div>
+      <p class="hub-desc" id="hubDesc"></p>
+      <div class="hub-grid" id="hubGrid"></div>
+    </div>
+
+    <!-- BRAIN DUMP VIEW -->
+    <div class="view" id="brainView">
+      <div class="hub-crumb" id="brainCrumb">&larr; <span id="brainCrumbTitle">Back to book</span></div>
+      <div class="hub-header">
+        <div class="hub-icon">&#9729;</div>
+        <h1>Brain Dump</h1>
+      </div>
+      <p class="hub-desc">Loose thoughts, half-formed ideas, things you don't want to lose. One running space for this book &mdash; write freely, it saves when you click Save.</p>
+      <div class="hub-brain-wrap">
+        <textarea id="brainTextarea" placeholder="Anything goes here..."></textarea>
+        <button class="btn primary hub-brain-save" id="brainSaveBtn" type="button">Save</button>
+      </div>
+    </div>
+
+  </main>
+  </div><!-- /appRoot -->
+
+  <!-- FLIP expand ghost -->
+  <div id="expandGhost"></div>
+
+  <!-- New book modal -->
+  <div class="overlay" id="newBookOverlay">
+    <div class="modal">
+      <h2>Title your project</h2>
+      <p class="hint">Just a title to start. You can add a cover now or later &mdash; everything here stays editable.</p>
+      <div class="field">
+        <label for="newTitleInput">Title</label>
+        <input id="newTitleInput" type="text" placeholder="e.g. The Long Way Home">
+      </div>
+      <div class="field">
+        <label>Cover image <span style="color:var(--ink-faint); font-weight:400;">(optional &mdash; recommended 400 &times; 600px, portrait)</span></label>
+        <div class="focus-cover" id="newCoverPreview" style="margin-bottom:6px;"></div>
+        <button class="focus-cover-edit" id="newCoverBtn" type="button">Upload image</button>
+      </div>
+      <div class="field">
+        <label>Spine color <span style="color:var(--ink-faint); font-weight:400;">(shows if there's no cover)</span></label>
+        <div class="swatches" id="swatches"></div>
+      </div>
+      <div class="field">
+        <label for="newThemeSelect">Theme <span style="color:var(--ink-faint); font-weight:400;">(the mood this book opens with &mdash; sci-fi, noir, cozy...)</span></label>
+        <select id="newThemeSelect"></select>
+      </div>
+      <div class="modal-actions">
+        <span></span>
+        <div class="modal-actions-right">
+          <button class="btn ghost" id="newCancelBtn" type="button">Cancel</button>
+          <button class="btn primary" id="newCreateBtn" type="button">Create book</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <input type="file" accept="image/*" class="hidden-file" id="newCoverFileInput">
+  <input type="file" accept="image/*" class="hidden-file" id="coverFileInput">
+
+  <!-- Writer modal (Chapters / Scenes) -->
+  <div class="overlay" id="entryOverlay">
+    <div class="modal writer">
+      <div class="writer-body">
+        <div class="writer-main">
+          <div class="field">
+            <input id="entryNameInput" type="text" class="writer-title-input" placeholder="Untitled">
+          </div>
+
+          <div class="rt-toolbar" id="rtToolbar">
+            <select id="rtFormatBlock" title="Paragraph style">
+              <option value="P">Paragraph</option>
+              <option value="H1">Heading 1</option>
+              <option value="H2">Heading 2</option>
+              <option value="H3">Heading 3</option>
+            </select>
+            <select id="rtFontName" title="Font">
+              <option value="Karla, sans-serif">Karla</option>
+              <option value="Lora, serif">Lora</option>
+              <option value="Georgia, serif">Georgia</option>
+              <option value="'Courier New', monospace">Courier</option>
+              <option value="Verdana, sans-serif">Verdana</option>
+            </select>
+            <select id="rtFontSize" title="Size">
+              <option value="2">Small</option>
+              <option value="3" selected>Normal</option>
+              <option value="4">Medium</option>
+              <option value="5">Large</option>
+              <option value="6">X-Large</option>
+            </select>
+            <span class="rt-divider"></span>
+            <button type="button" data-cmd="bold" title="Bold"><b>B</b></button>
+            <button type="button" data-cmd="italic" title="Italic"><i>I</i></button>
+            <button type="button" data-cmd="underline" title="Underline"><u>U</u></button>
+            <button type="button" data-cmd="strikeThrough" title="Strikethrough"><s>S</s></button>
+            <input type="color" id="rtColor" title="Text color" value="#2B302C">
+            <span class="rt-divider"></span>
+            <button type="button" data-cmd="justifyLeft" title="Align left">&#8676;</button>
+            <button type="button" data-cmd="justifyCenter" title="Align center">&#8646;</button>
+            <button type="button" data-cmd="justifyRight" title="Align right">&#8677;</button>
+            <span class="rt-divider"></span>
+            <button type="button" data-cmd="insertUnorderedList" title="Bulleted list">&#8226;&#8226;&#8226;</button>
+            <button type="button" data-cmd="insertOrderedList" title="Numbered list">1.2.3</button>
+            <span class="rt-divider"></span>
+            <button type="button" data-cmd="undo" title="Undo">&#8630;</button>
+            <button type="button" data-cmd="redo" title="Redo">&#8631;</button>
+            <button type="button" data-cmd="removeFormat" title="Clear formatting">Clear</button>
+          </div>
+          <div id="entryContentEditable" class="rich-editor" contenteditable="true"></div>
+        </div>
+
+        <aside class="writer-sidebar" id="writerSidebar">
+          <div class="writer-drawer-handle" id="writerDrawerHandle"></div>
+          <div class="writer-sidebar-header">
+            <span class="writer-sidebar-title">Mentioned in this scene</span>
+            <span class="writer-sidebar-count" id="writerSidebarCount"></span>
+          </div>
+          <div class="writer-filter-chips" id="writerFilterChips">
+            <button class="chip active" data-filter="all" type="button">All</button>
+            <button class="chip" data-filter="characters" type="button">Characters</button>
+            <button class="chip" data-filter="locations" type="button">Locations</button>
+            <button class="chip" data-filter="items" type="button">Items</button>
+          </div>
+          <div class="writer-entity-list" id="writerEntityList"></div>
+        </aside>
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn ghost" id="entryDeleteBtn" type="button" style="color:var(--rust-deep);">Delete</button>
+        <div class="modal-actions-right">
+          <button class="btn ghost" id="entryCancelBtn" type="button">Cancel</button>
+          <button class="btn primary" id="entrySaveBtn" type="button">Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Character template modal -->
+  <div class="overlay" id="characterOverlay">
+    <div class="modal wide">
+      <h2 id="charModalTitle">New character</h2>
+
+      <div class="field">
+        <label>Reference images <span style="color:var(--ink-faint); font-weight:400;">(optional &mdash; add as many as you like. Recommended around 800 &times; 800px, square)</span></label>
+        <div class="char-image-grid" id="charImageGrid"></div>
+      </div>
+
+      <div class="field">
+        <label for="charName">Character Name</label>
+        <input id="charName" type="text" placeholder="e.g. Mira Voss">
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label for="charRole">Role in Story</label>
+          <textarea id="charRole" rows="2" placeholder="Protagonist, antagonist, mentor, love interest, comic relief... their function in the story."></textarea>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="charGoal">Goal</label>
+        <textarea id="charGoal" rows="2" placeholder="What do they want? Could be their want in a single scene, or the driving want of the whole book."></textarea>
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label for="charAge">Age</label>
+          <input id="charAge" type="text" placeholder="e.g. 34, or 'looks late 20s'">
+        </div>
+        <div class="field">
+          <label for="charSex">Sex</label>
+          <input id="charSex" type="text" placeholder="e.g. Male, Female">
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="charPhysical">Physical Description</label>
+        <textarea id="charPhysical" rows="3" placeholder="Height, build, hair, eyes, scars &mdash; anything visual that matters when picturing them."></textarea>
+      </div>
+
+      <div class="field">
+        <label for="charAttire">Typical Attire</label>
+        <textarea id="charAttire" rows="2" placeholder="What they usually wear, and what that says about them."></textarea>
+      </div>
+
+      <div class="field">
+        <label for="charPersonality">Personality</label>
+        <textarea id="charPersonality" rows="3" placeholder="Core traits and temperament &mdash; how they come across to others, and who they really are underneath."></textarea>
+      </div>
+
+      <div class="field">
+        <label for="charOccupation">Occupation</label>
+        <input id="charOccupation" type="text" placeholder="What they do for work, or how they spend their time.">
+      </div>
+
+      <div class="field">
+        <label for="charHabits">Habits/Mannerisms</label>
+        <textarea id="charHabits" rows="2" placeholder="Verbal tics, gestures, nervous habits &mdash; the little things that make them feel real."></textarea>
+      </div>
+
+      <div class="field">
+        <label for="charBackground">Background</label>
+        <textarea id="charBackground" rows="4" placeholder="Where they came from, formative events, family, history &mdash; whatever shaped them before page one."></textarea>
+      </div>
+
+      <div class="field">
+        <label for="charInternal">Internal Conflicts</label>
+        <textarea id="charInternal" rows="3" placeholder="What they're wrestling with inside themselves &mdash; fears, contradictions, self-doubt."></textarea>
+      </div>
+
+      <div class="field">
+        <label for="charExternal">External Conflicts</label>
+        <textarea id="charExternal" rows="3" placeholder="Forces outside of them working against what they want &mdash; people, circumstances, obstacles."></textarea>
+      </div>
+
+      <div class="field">
+        <label for="charTags">Tags</label>
+        <textarea id="charTags" rows="2" placeholder="Anything associated with this character: items they carry, their race or regime, the land they come from, a faction, a nickname. Comma-separated works well &mdash; e.g. 'exiled, carries her father's compass, Northern Reach, fire magic'."></textarea>
+      </div>
+
+      <div class="field">
+        <label for="charNotes">Additional Notes</label>
+        <textarea id="charNotes" rows="3" placeholder="Anything else worth remembering that doesn't fit above."></textarea>
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn ghost" id="charDeleteBtn" type="button" style="color:var(--rust-deep);">Delete</button>
+        <div class="modal-actions-right">
+          <button class="btn ghost" id="charCancelBtn" type="button">Cancel</button>
+          <button class="btn primary" id="charSaveBtn" type="button">Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <input type="file" accept="image/*" multiple class="hidden-file" id="charImageFileInput">
+
+  <!-- Location template modal -->
+  <div class="overlay" id="locationOverlay">
+    <div class="modal wide">
+      <h2 id="locModalTitle">New location</h2>
+
+      <div class="field">
+        <label>Reference images <span style="color:var(--ink-faint); font-weight:400;">(optional &mdash; add as many as you like. Recommended around 800 &times; 800px, square)</span></label>
+        <div class="char-image-grid" id="locImageGrid"></div>
+      </div>
+
+      <div class="field">
+        <label for="locName">Name of Setting</label>
+        <input id="locName" type="text" placeholder="e.g. The Hollow Bell Tavern">
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label for="locLocation">Location</label>
+          <input id="locLocation" type="text" placeholder="Where this sits in the wider world &mdash; city, region, planet, whatever scale fits.">
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="locRole">Role in Story</label>
+        <textarea id="locRole" rows="2" placeholder="What happens here, and why this place matters to the plot."></textarea>
+      </div>
+
+      <div class="field">
+        <label for="locCharacters">Related Characters</label>
+        <textarea id="locCharacters" rows="2" placeholder="Who's connected to this place &mdash; who lives here, owns it, was born here, or keeps coming back."></textarea>
+      </div>
+
+      <div class="field">
+        <label for="locWeather">Season/Weather</label>
+        <input id="locWeather" type="text" placeholder="Whatever season or weather this setting is usually shown in, if it matters.">
+      </div>
+
+      <div class="field">
+        <label for="locFeatures">Unique Features</label>
+        <textarea id="locFeatures" rows="2" placeholder="What makes this place distinct &mdash; a landmark, a quirk of its geography, something no other setting has."></textarea>
+      </div>
+
+      <div class="field">
+        <label for="locDescription">Description</label>
+        <textarea id="locDescription" rows="4" placeholder="The physical space itself &mdash; layout, scale, materials, what it looks like walking in."></textarea>
+      </div>
+
+      <div class="field">
+        <label for="locSights">Sights</label>
+        <textarea id="locSights" rows="2" placeholder="What a character would actually see here."></textarea>
+      </div>
+
+      <div class="field">
+        <label for="locSounds">Sounds</label>
+        <textarea id="locSounds" rows="2" placeholder="What a character would hear here."></textarea>
+      </div>
+
+      <div class="field">
+        <label for="locSmells">Smells</label>
+        <textarea id="locSmells" rows="2" placeholder="What a character would smell here."></textarea>
+      </div>
+
+      <div class="field">
+        <label for="locNotes">Additional Notes</label>
+        <textarea id="locNotes" rows="3" placeholder="Anything else worth remembering that doesn't fit above."></textarea>
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn ghost" id="locDeleteBtn" type="button" style="color:var(--rust-deep);">Delete</button>
+        <div class="modal-actions-right">
+          <button class="btn ghost" id="locCancelBtn" type="button">Cancel</button>
+          <button class="btn primary" id="locSaveBtn" type="button">Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <input type="file" accept="image/*" multiple class="hidden-file" id="locImageFileInput">
+
+  <!-- Item template modal -->
+  <div class="overlay" id="itemOverlay">
+    <div class="modal wide">
+      <h2 id="itemModalTitle">New item</h2>
+
+      <div class="field">
+        <label>Reference images <span style="color:var(--ink-faint); font-weight:400;">(optional &mdash; add as many as you like. Recommended around 800 &times; 800px, square)</span></label>
+        <div class="char-image-grid" id="itemImageGrid"></div>
+      </div>
+
+      <div class="field">
+        <label for="itemName">Name of Item</label>
+        <input id="itemName" type="text" placeholder="e.g. The Ashwood Compass">
+      </div>
+
+      <div class="field">
+        <label for="itemPoint">Point in the Story</label>
+        <textarea id="itemPoint" rows="2" placeholder="When and why this item enters the story &mdash; what moment it's tied to."></textarea>
+      </div>
+
+      <div class="field-group">
+        <div class="field-group-label">Description of Item</div>
+        <div class="field-group-sub">
+          <div class="field">
+            <label for="itemLooks">Looks</label>
+            <textarea id="itemLooks" rows="2" placeholder="What it looks like &mdash; material, shape, size, wear and tear, any markings."></textarea>
+          </div>
+          <div class="field">
+            <label for="itemSounds">Sounds</label>
+            <textarea id="itemSounds" rows="2" placeholder="Any sound it makes &mdash; a hum, a click, a silence that stands out."></textarea>
+          </div>
+          <div class="field">
+            <label for="itemEffects">Effects</label>
+            <textarea id="itemEffects" rows="2" placeholder="What it does, or what happens when it's used, worn, or triggered."></textarea>
+          </div>
+          <div class="field">
+            <label for="itemWeaknesses">Potential Weaknesses</label>
+            <textarea id="itemWeaknesses" rows="2" placeholder="Any limits, flaws, or ways it can fail, break, or be countered."></textarea>
+          </div>
+        </div>
+      </div>
+
+      <div class="field-group">
+        <div class="field-group-label">If applicable</div>
+        <div class="field-group-sub">
+          <div class="field">
+            <label for="itemDesigner">Who designed it?</label>
+            <input id="itemDesigner" type="text" placeholder="The maker or creator, if that's known or matters.">
+          </div>
+          <div class="field">
+            <label for="itemDesignWhy">Why?</label>
+            <textarea id="itemDesignWhy" rows="2" placeholder="Why they made it &mdash; the purpose or intention behind its creation."></textarea>
+          </div>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="itemNotes">Additional Notes</label>
+        <textarea id="itemNotes" rows="3" placeholder="Anything else worth remembering that doesn't fit above."></textarea>
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn ghost" id="itemDeleteBtn" type="button" style="color:var(--rust-deep);">Delete</button>
+        <div class="modal-actions-right">
+          <button class="btn ghost" id="itemCancelBtn" type="button">Cancel</button>
+          <button class="btn primary" id="itemSaveBtn" type="button">Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <input type="file" accept="image/*" multiple class="hidden-file" id="itemImageFileInput">
+
+  <!-- Image lightbox -->
+  <div class="img-lightbox" id="imgLightbox">
+    <img id="imgLightboxImg" src="" alt="Full size preview">
+  </div>
+  <div class="overlay" id="deleteStep1Overlay">
+    <div class="modal small">
+      <div class="danger-modal-icon">&#128683;</div>
+      <h2 id="deleteStep1Title">Delete this book?</h2>
+      <p class="hint">Everything inside it &mdash; chapters, scenes, characters, locations, items, and the brain dump &mdash; will be deleted with it.</p>
+      <div class="modal-actions">
+        <span></span>
+        <div class="modal-actions-right">
+          <button class="btn ghost" id="deleteStep1Cancel" type="button">Cancel</button>
+          <button class="btn danger" id="deleteStep1Confirm" type="button">Yes, delete</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Delete confirm step 2 -->
+  <div class="overlay" id="deleteStep2Overlay">
+    <div class="modal small">
+      <div class="danger-modal-icon">&#9888;&#65039;</div>
+      <h2>Are you positive?</h2>
+      <p class="hint" id="deleteStep2Text">This will 100% delete this book. There's no undo &mdash; it will be gone for good.</p>
+      <div class="modal-actions">
+        <span></span>
+        <div class="modal-actions-right">
+          <button class="btn ghost" id="deleteStep2Cancel" type="button">Cancel</button>
+          <button class="btn danger" id="deleteStep2Confirm" type="button">Yes, delete forever</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- AI Assist settings -->
+  <div class="overlay" id="aiSettingsOverlay">
+    <div class="modal">
+      <h2>AI Assist</h2>
+      <p class="hint">Choose how you'll want AI-suggested updates to characters, locations, and items to behave once real-time reading comprehension is wired up. For now this just saves your preference &mdash; it'll take effect once that piece is built.</p>
+
+      <div class="ai-mode-options" id="aiModeOptions">
+        <label class="ai-mode-option">
+          <input type="radio" name="aiMode" value="a">
+          <div><div class="ai-mode-title">Check in every time</div><div class="ai-mode-desc">Every AI-suggested update pauses for your approval before anything changes.</div></div>
+        </label>
+        <label class="ai-mode-option">
+          <input type="radio" name="aiMode" value="b">
+          <div><div class="ai-mode-title">Apply automatically</div><div class="ai-mode-desc">Updates apply instantly with no interruptions, so your flow state stays intact.</div></div>
+        </label>
+        <label class="ai-mode-option">
+          <input type="radio" name="aiMode" value="c">
+          <div><div class="ai-mode-title">Review on save</div><div class="ai-mode-desc">The AI quietly tracks changes as you write. When you save, you'll get a summary to approve or reject each one.</div></div>
+        </label>
+      </div>
+
+      <div class="field" style="margin-top: 6px;">
+        <label class="ai-autosave-row">
+          <input type="checkbox" id="aiAutosaveToggle">
+          <span>Also autosave while I write</span>
+        </label>
+        <div class="field-row" style="margin-top: 10px;">
+          <div class="field">
+            <label for="aiAutosaveInterval">Autosave every</label>
+            <select id="aiAutosaveInterval">
+              <option value="15">15 minutes</option>
+              <option value="20">20 minutes</option>
+              <option value="30" selected>30 minutes</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <span></span>
+        <div class="modal-actions-right">
+          <button class="btn ghost" id="aiSettingsCloseBtn" type="button">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script src="supabase/v2-adapter.js"></script>
+<script>
+  const root = document.documentElement;
+  const globalSaveBar = document.getElementById('globalSaveBar');
+  const globalSaveMessage = document.getElementById('globalSaveMessage');
+  const globalSaveBtn = document.getElementById('globalSaveBtn');
+
+  function setSaveStatus(state, message) {
+    globalSaveBar.classList.toggle('is-dirty', state === 'dirty');
+    globalSaveBar.classList.toggle('is-saving', state === 'saving');
+    globalSaveMessage.textContent = message;
+  }
+  function markUnsaved() { setSaveStatus('dirty', 'Unsaved changes'); }
+  function markSaved() { setSaveStatus('saved', 'All changes saved'); }
+
+  // ================= Auth (prototype only) =================
+  // NOTE: credentials are stored in plain text in the browser's localStorage.
+  // This is only for early design/testing. Before real users touch this,
+  // swap this whole block for a real backend + hashed passwords, and
+  // delete the admin bypass button below.
+  const loginScreen = document.getElementById('loginScreen');
+  const appRoot = document.getElementById('appRoot');
+  const loginError = document.getElementById('loginError');
+  const loginEmail = document.getElementById('loginEmail');
+  const loginPassword = document.getElementById('loginPassword');
+  const tabLogin = document.getElementById('tabLogin');
+  const tabSignup = document.getElementById('tabSignup');
+  const loginSubmitBtn = document.getElementById('loginSubmitBtn');
+  const sessionEmail = document.getElementById('sessionEmail');
+
+  function loadUsers() {
+    try { return JSON.parse(localStorage.getItem('marginalia-users') || '{}'); } catch (e) { return {}; }
+  }
+  function saveUsers(users) {
+    try { localStorage.setItem('marginalia-users', JSON.stringify(users)); } catch (e) {}
+  }
+  function isValidEmail(v) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v); }
+
+  let authMode = 'login'; // 'login' | 'signup'
+  function setAuthMode(mode) {
+    authMode = mode;
+    tabLogin.classList.toggle('active', mode === 'login');
+    tabSignup.classList.toggle('active', mode === 'signup');
+    loginSubmitBtn.textContent = mode === 'login' ? 'Log in' : 'Create account';
+    loginPassword.setAttribute('autocomplete', mode === 'login' ? 'current-password' : 'new-password');
+    hideLoginError();
+  }
+  tabLogin.addEventListener('click', () => setAuthMode('login'));
+  tabSignup.addEventListener('click', () => setAuthMode('signup'));
+
+  function showLoginError(msg) { loginError.textContent = msg; loginError.classList.add('show'); }
+  function hideLoginError() { loginError.classList.remove('show'); }
+
+  function revealApp(email) {
+    loginScreen.classList.add('hidden');
+    appRoot.classList.remove('hidden');
+    sessionEmail.textContent = email === 'admin-test@local' ? 'Admin (testing)' : email;
+    try { localStorage.setItem('marginalia-session', email); } catch (e) {}
+  }
+
+  loginSubmitBtn.addEventListener('click', () => {
+    const email = loginEmail.value.trim().toLowerCase();
+    const pass = loginPassword.value;
+    hideLoginError();
+    if (!isValidEmail(email)) { showLoginError('Enter a valid email address.'); return; }
+    if (!pass) { showLoginError('Enter a password.'); return; }
+
+    const users = loadUsers();
+    if (authMode === 'signup') {
+      if (users[email]) { showLoginError('An account with that email already exists. Try logging in instead.'); return; }
+      if (pass.length < 4) { showLoginError('Password should be at least 4 characters.'); return; }
+      users[email] = pass;
+      saveUsers(users);
+      revealApp(email);
+    } else {
+      if (!users[email] || users[email] !== pass) { showLoginError('Incorrect email or password.'); return; }
+      revealApp(email);
+    }
+  });
+  [loginEmail, loginPassword].forEach(el => el.addEventListener('keydown', (e) => { if (e.key === 'Enter') loginSubmitBtn.click(); }));
+
+  document.getElementById('adminBypassBtn').addEventListener('click', () => revealApp('admin-test@local'));
+
+  document.getElementById('logoutBtn').addEventListener('click', () => {
+    try { localStorage.removeItem('marginalia-session'); } catch (e) {}
+    appRoot.classList.add('hidden');
+    loginScreen.classList.remove('hidden');
+    loginEmail.value = ''; loginPassword.value = '';
+    setAuthMode('login');
+  });
+
+  // Restore an existing session on load
+  (function checkSession() {
+    let session = null;
+    try { session = localStorage.getItem('marginalia-session'); } catch (e) {}
+    if (session) revealApp(session);
+    else { loginScreen.classList.remove('hidden'); appRoot.classList.add('hidden'); }
+  })();
+
+
+  // ================= Themes =================
+  const THEMES = {
+    rainy: { name: 'Rainy & Quiet', tagline: 'rainy & quiet',
+      light: { bg:'#E3E7E6', 'bg-deep':'#D6DCDA', paper:'#F7F4EC', 'paper-edge':'#ECE7D9', ink:'#2B302C', 'ink-soft':'#565F58', 'ink-faint':'#8B9289', slate:'#5C7380', 'slate-deep':'#435560', moss:'#7C8B6F', rust:'#A56A5D', 'rust-deep':'#8A5347' },
+      dark:  { bg:'#1E2523', 'bg-deep':'#171C1B', paper:'#262E2B', 'paper-edge':'#2F3733', ink:'#E7E9E3', 'ink-soft':'#AEB6AC', 'ink-faint':'#737C74', slate:'#8FAEBC', 'slate-deep':'#A9C4D0', moss:'#9CAC8C', rust:'#C98D7F', 'rust-deep':'#D9A899' },
+      deco: { type: 'fall', shape: 'bar', color: 'var(--slate)', count: 14 } },
+
+    fantasy: { name: 'Fantasy', tagline: 'whimsical & bright',
+      light: { bg:'#F1E9F7', 'bg-deep':'#E3D3EF', paper:'#FBF5FF', 'paper-edge':'#EEDFF7', ink:'#392B4A', 'ink-soft':'#6B5580', 'ink-faint':'#A28FBE', slate:'#8B5FBF', 'slate-deep':'#6B3FA0', moss:'#C9A227', rust:'#D98E3F', 'rust-deep':'#B96F27' },
+      dark:  { bg:'#241A33', 'bg-deep':'#1A1226', paper:'#2E2140', 'paper-edge':'#3A2A52', ink:'#F0E6FF', 'ink-soft':'#C9B8E0', 'ink-faint':'#8F7BAE', slate:'#B98FE6', 'slate-deep':'#D2B3FF', moss:'#E8C34D', rust:'#E8A15C', 'rust-deep':'#F0B87A' },
+      deco: { type: 'rise', shape: 'dot', color: '#D9B23A', count: 16 }, castle: true },
+
+    mystery: { name: 'Mystery', tagline: 'fog & candlelight',
+      light: { bg:'#E4E6E1', 'bg-deep':'#D3D7CD', paper:'#F4F1E8', 'paper-edge':'#E6E2D3', ink:'#28312D', 'ink-soft':'#4F5C55', 'ink-faint':'#83958B', slate:'#3E6E64', 'slate-deep':'#2A544B', moss:'#7A2E3A', rust:'#8C5E3C', 'rust-deep':'#6E4527' },
+      dark:  { bg:'#171E1B', 'bg-deep':'#101512', paper:'#202823', 'paper-edge':'#293029', ink:'#DCE6DE', 'ink-soft':'#A9B8AC', 'ink-faint':'#6E7C71', slate:'#5FA695', 'slate-deep':'#7FC2AF', moss:'#B15264', rust:'#C08A5E', 'rust-deep':'#D6A579' },
+      deco: { type: 'fog', color: 'var(--slate)', count: 6 } },
+
+    thriller: { name: 'Thriller', tagline: 'pulse & pressure',
+      light: { bg:'#EDE4E2', 'bg-deep':'#DECFCB', paper:'#F7EDEA', 'paper-edge':'#ECD9D4', ink:'#2A1A18', 'ink-soft':'#5C3A36', 'ink-faint':'#9A7570', slate:'#7A2E28', 'slate-deep':'#5C1E1A', moss:'#B23A2E', rust:'#8C2A22', 'rust-deep':'#6E1E18' },
+      dark:  { bg:'#1C1211', 'bg-deep':'#130C0B', paper:'#251815', 'paper-edge':'#33211D', ink:'#F0DEDA', 'ink-soft':'#C9A8A2', 'ink-faint':'#8C6560', slate:'#D4453A', 'slate-deep':'#E86055', moss:'#E8564A', rust:'#C97A5E', 'rust-deep':'#D69579' },
+      deco: { type: 'fall', shape: 'drip', color: 'var(--slate)', count: 10 } },
+
+    noir: { name: 'Noir', tagline: 'shadow & smoke',
+      light: { bg:'#E7E7E5', 'bg-deep':'#D4D4D2', paper:'#F6F6F4', 'paper-edge':'#E4E4E1', ink:'#1E1E1E', 'ink-soft':'#4A4A4A', 'ink-faint':'#8A8A8A', slate:'#3B3B3B', 'slate-deep':'#1E1E1E', moss:'#6B6B6B', rust:'#5A5A5A', 'rust-deep':'#404040' },
+      dark:  { bg:'#141414', 'bg-deep':'#0B0B0B', paper:'#1C1C1C', 'paper-edge':'#282828', ink:'#EDEDED', 'ink-soft':'#B8B8B8', 'ink-faint':'#7A7A7A', slate:'#CFCFCF', 'slate-deep':'#FFFFFF', moss:'#9A9A9A', rust:'#B0B0B0', 'rust-deep':'#D0D0D0' },
+      deco: { type: 'sweep' } },
+
+    scifi: { name: 'Sci-Fi', tagline: 'signal & static',
+      light: { bg:'#E2EAEE', 'bg-deep':'#CBD9E0', paper:'#F2F7FA', 'paper-edge':'#DCE8EE', ink:'#132A33', 'ink-soft':'#33565F', 'ink-faint':'#6F919A', slate:'#1F8A9E', 'slate-deep':'#136D7E', moss:'#2FD9C4', rust:'#B46CD9', 'rust-deep':'#8E4BB8' },
+      dark:  { bg:'#0B1620', 'bg-deep':'#070E15', paper:'#101E29', 'paper-edge':'#162B39', ink:'#D9F5FA', 'ink-soft':'#9FD3DE', 'ink-faint':'#5A8892', slate:'#2FE0F0', 'slate-deep':'#7CF0FA', moss:'#3CF2C9', rust:'#C98CF0', 'rust-deep':'#DDA8FF' },
+      deco: { type: 'rise', shape: 'dot', color: 'var(--slate)', count: 16 }, scan: true },
+
+    horror: { name: 'Horror', tagline: 'ash & candle-flicker',
+      light: { bg:'#E7E1DD', 'bg-deep':'#D6CBC3', paper:'#F5EFE9', 'paper-edge':'#E6DAD0', ink:'#241512', 'ink-soft':'#4E322B', 'ink-faint':'#8C6E62', slate:'#5C1414', 'slate-deep':'#3D0D0D', moss:'#7A1F1F', rust:'#96410F', 'rust-deep':'#732F0A' },
+      dark:  { bg:'#120D0C', 'bg-deep':'#0A0706', paper:'#1B1412', 'paper-edge':'#261C19', ink:'#EBD9D2', 'ink-soft':'#B99B90', 'ink-faint':'#75564C', slate:'#B02020', 'slate-deep':'#D83A3A', moss:'#C9433A', rust:'#D9793C', 'rust-deep':'#EA9758' },
+      deco: { type: 'rise', shape: 'dot', color: 'var(--rust)', count: 10 } },
+
+    romance: { name: 'Romance', tagline: 'petals & soft light',
+      light: { bg:'#F7E9EC', 'bg-deep':'#F0D5DC', paper:'#FDF3F5', 'paper-edge':'#F5DEE3', ink:'#402730', 'ink-soft':'#734B57', 'ink-faint':'#B98A97', slate:'#C36685', 'slate-deep':'#A8456A', moss:'#E1A0B3', rust:'#D98E7A', 'rust-deep':'#BF6D57' },
+      dark:  { bg:'#2B1820', 'bg-deep':'#1F1017', paper:'#361F29', 'paper-edge':'#452A36', ink:'#F7E2E8', 'ink-soft':'#D9AFBC', 'ink-faint':'#9C7484', slate:'#F08CAE', 'slate-deep':'#F7A9C4', moss:'#E8B3C4', rust:'#F0A98B', 'rust-deep':'#F5C0A6' },
+      deco: { type: 'sway', shape: 'dot', color: 'var(--slate)', count: 12 } },
+
+    historical: { name: 'Historical', tagline: 'parchment & dust', 
+      light: { bg:'#EDE6D6', 'bg-deep':'#DFD3B8', paper:'#F8F2E2', 'paper-edge':'#E9DEC2', ink:'#3A2E1E', 'ink-soft':'#665338', 'ink-faint':'#9C8964', slate:'#7A5A2E', 'slate-deep':'#5C4320', moss:'#8C7A3E', rust:'#A9652F', 'rust-deep':'#874C1F' },
+      dark:  { bg:'#1E1811', 'bg-deep':'#15110C', paper:'#281911', 'paper-edge':'#342A1C', ink:'#EDE1CB', 'ink-soft':'#C2B190', 'ink-faint':'#8A7A5C', slate:'#C2A15C', 'slate-deep':'#D9BC7C', moss:'#B8A15C', rust:'#D9945C', 'rust-deep':'#E8AE7C' },
+      deco: { type: 'rise', shape: 'dot', color: 'var(--slate)', count: 9 } },
+
+    western: { name: 'Western', tagline: 'dust & heat haze',
+      light: { bg:'#EDE0CB', 'bg-deep':'#DFCBA3', paper:'#F7EEDB', 'paper-edge':'#EADBB6', ink:'#3B2A18', 'ink-soft':'#6B4E2E', 'ink-faint':'#A8875C', slate:'#A9642E', 'slate-deep':'#874A1C', moss:'#8C6B2E', rust:'#B84B2A', 'rust-deep':'#943A1F' },
+      dark:  { bg:'#1F160D', 'bg-deep':'#161009', paper:'#291D11', 'paper-edge':'#372716', ink:'#F0DFC2', 'ink-soft':'#C7AB80', 'ink-faint':'#8F7452', slate:'#D9905C', 'slate-deep':'#E8AC7C', moss:'#C9A05C', rust:'#E87A4E', 'rust-deep':'#F09868' },
+      deco: { type: 'fog', color: 'var(--slate)', count: 5 } },
+
+    cozy: { name: 'Cozy', tagline: 'warm & unhurried',
+      light: { bg:'#F1E9D8', 'bg-deep':'#E5D7B8', paper:'#FAF4E6', 'paper-edge':'#EDE1C4', ink:'#3A2E1C', 'ink-soft':'#6B5836', 'ink-faint':'#A6915F', slate:'#C98A3D', 'slate-deep':'#A96B24', moss:'#8FA35C', rust:'#D9713F', 'rust-deep':'#B85527' },
+      dark:  { bg:'#211809', 'bg-deep':'#181104', paper:'#2B2010', 'paper-edge':'#382A16', ink:'#F2E4C4', 'ink-soft':'#CCB584', 'ink-faint':'#93805A', slate:'#E8A85C', 'slate-deep':'#F2C27C', moss:'#B8CC7C', rust:'#F0966A', 'rust-deep':'#F7B38A' },
+      deco: { type: 'sway', shape: 'dot', color: 'var(--moss)', count: 10 } },
+  };
+  const THEME_ORDER = ['rainy','fantasy','mystery','thriller','noir','scifi','horror','romance','historical','western','cozy'];
+
+  const CASTLE_SVG = `<svg width="52" height="76" viewBox="0 0 56 80" style="display:block;"><g fill="currentColor">
+    <rect x="4" y="40" width="10" height="40"/><rect x="2" y="34" width="4" height="6"/><rect x="10" y="34" width="4" height="6"/>
+    <rect x="42" y="30" width="10" height="50"/><rect x="40" y="24" width="4" height="6"/><rect x="48" y="24" width="4" height="6"/>
+    <rect x="14" y="50" width="28" height="30"/><rect x="14" y="44" width="4" height="6"/><rect x="22" y="44" width="4" height="6"/>
+    <rect x="30" y="44" width="4" height="6"/><rect x="38" y="44" width="4" height="6"/><rect x="24" y="60" width="8" height="20"/>
+  </g></svg>`;
+
+  const navRain = document.getElementById('navRain');
+  const decoOverlay = document.getElementById('decoOverlay');
+  const decoCastle = document.getElementById('decoCastle');
+
+  function renderDeco(theme) {
+    navRain.innerHTML = ''; decoOverlay.innerHTML = ''; decoCastle.innerHTML = '';
+    const d = theme.deco || {};
+    navRain.style.color = d.color || 'var(--ink-faint)';
+    const count = d.count || 10;
+    if (d.type === 'fall') {
+      for (let i = 0; i < count; i++) {
+        const s = document.createElement('span');
+        s.className = d.shape === 'drip' ? 'p-drip' : 'p-bar';
+        s.style.left = (Math.random() * 100) + '%';
+        s.style.height = (24 + Math.random() * 40) + 'px';
+        s.style.animationDuration = (3 + Math.random() * 4) + 's';
+        s.style.animationDelay = (Math.random() * 6) + 's';
+        navRain.appendChild(s);
+      }
+    } else if (d.type === 'rise') {
+      for (let i = 0; i < count; i++) {
+        const s = document.createElement('span');
+        s.className = 'p-dot rise';
+        const size = 2 + Math.random() * 3;
+        s.style.left = (Math.random() * 100) + '%';
+        s.style.width = size + 'px'; s.style.height = size + 'px';
+        s.style.animationDuration = (5 + Math.random() * 5) + 's';
+        s.style.animationDelay = (Math.random() * 6) + 's';
+        navRain.appendChild(s);
+      }
+    } else if (d.type === 'sway') {
+      for (let i = 0; i < count; i++) {
+        const s = document.createElement('span');
+        s.className = 'p-dot sway';
+        const size = 3 + Math.random() * 3;
+        s.style.left = (Math.random() * 100) + '%';
+        s.style.width = size + 'px'; s.style.height = size + 'px';
+        s.style.setProperty('--dx', (10 + Math.random() * 20) + 'px');
+        s.style.animationDuration = (6 + Math.random() * 5) + 's';
+        s.style.animationDelay = (Math.random() * 6) + 's';
+        navRain.appendChild(s);
+      }
+    } else if (d.type === 'fog') {
+      for (let i = 0; i < count; i++) {
+        const s = document.createElement('span');
+        s.className = 'p-fog';
+        const size = 40 + Math.random() * 50;
+        s.style.top = (Math.random() * 90) + '%';
+        s.style.width = size + 'px'; s.style.height = (size * 0.5) + 'px';
+        s.style.animationDuration = (10 + Math.random() * 8) + 's';
+        s.style.animationDelay = (Math.random() * 6) + 's';
+        navRain.appendChild(s);
+      }
+    }
+    if (d.type === 'sweep') {
+      const sweep = document.createElement('div');
+      sweep.className = 'deco-sweep';
+      sweep.style.color = 'var(--ink-faint)';
+      decoOverlay.appendChild(sweep);
+    }
+    if (theme.scan) {
+      const line = document.createElement('div');
+      line.className = 'deco-scanline';
+      line.style.color = 'var(--slate)';
+      decoOverlay.appendChild(line);
+    }
+    if (theme.castle) {
+      decoCastle.innerHTML = CASTLE_SVG;
+      decoCastle.style.color = 'var(--slate-deep)';
+    }
+  }
+
+  function paintPalette(themeId, mode) {
+    const t = THEMES[themeId] || THEMES.rainy;
+    const colors = t[mode] || t.light;
+    Object.keys(colors).forEach(k => root.style.setProperty('--' + k, colors[k]));
+    renderDeco(t);
+    document.getElementById('moodLabel').textContent = t.tagline;
+  }
+
+  function populateThemeSelect(selectEl) {
+    THEME_ORDER.forEach(id => {
+      const opt = document.createElement('option');
+      opt.value = id; opt.textContent = THEMES[id].name;
+      selectEl.appendChild(opt);
+    });
+  }
+  const themeSelect = document.getElementById('themeSelect');
+  populateThemeSelect(themeSelect);
+  const newThemeSelect = document.getElementById('newThemeSelect');
+  populateThemeSelect(newThemeSelect);
+
+  let appTheme = 'rainy';
+  try { const saved = localStorage.getItem('marginalia-app-theme'); if (saved && THEMES[saved]) appTheme = saved; } catch (e) {}
+
+  const themeToggle = document.getElementById('themeToggle');
+  let currentMode = 'light';
+  try { const saved = localStorage.getItem('marginalia-theme'); if (saved) currentMode = saved; } catch (e) {}
+
+  function currentEffectiveTheme() {
+    if (activeProjectId) {
+      const p = projects.find(x => x.id === activeProjectId);
+      return (p && p.theme && THEMES[p.theme]) ? p.theme : appTheme;
+    }
+    return appTheme;
+  }
+  function repaint() {
+    const id = currentEffectiveTheme();
+    paintPalette(id, currentMode);
+    themeSelect.value = id;
+    themeToggle.textContent = currentMode === 'dark' ? 'light' : 'dark';
+  }
+  themeToggle.addEventListener('click', () => {
+    currentMode = currentMode === 'dark' ? 'light' : 'dark';
+    try { localStorage.setItem('marginalia-theme', currentMode); } catch (e) {}
+    repaint();
+  });
+  themeSelect.addEventListener('change', () => {
+    const id = themeSelect.value;
+    if (activeProjectId) {
+      const p = projects.find(x => x.id === activeProjectId);
+      if (p) { p.theme = id; saveProjects(); }
+    } else {
+      appTheme = id;
+      try { localStorage.setItem('marginalia-app-theme', id); } catch (e) {}
+    }
+    repaint();
+  });
+
+  // ================= Nav collapse =================
+  const navEl = document.querySelector('.nav');
+  const navCollapseBtn = document.getElementById('navCollapseBtn');
+  function applyNavCollapsed(collapsed) {
+    navEl.classList.toggle('collapsed', collapsed);
+    navCollapseBtn.innerHTML = collapsed ? '&#10095;' : '&#10094;';
+    navCollapseBtn.title = collapsed ? 'Expand sidebar' : 'Collapse sidebar';
+  }
+  let navCollapsed = false;
+  try { navCollapsed = localStorage.getItem('marginalia-nav-collapsed') === '1'; } catch (e) {}
+  applyNavCollapsed(navCollapsed);
+  navCollapseBtn.addEventListener('click', () => {
+    navCollapsed = !navCollapsed;
+    applyNavCollapsed(navCollapsed);
+    try { localStorage.setItem('marginalia-nav-collapsed', navCollapsed ? '1' : '0'); } catch (e) {}
+  });
+
+  // ================= AI Assist preferences (V1: settings only, no live AI yet) =================
+  const aiPrefs = { mode: 'c', autosaveEnabled: false, autosaveInterval: 30 };
+  try {
+    const saved = JSON.parse(localStorage.getItem('marginalia-ai-prefs') || 'null');
+    if (saved) Object.assign(aiPrefs, saved);
+  } catch (e) {}
+  function saveAiPrefs() { try { localStorage.setItem('marginalia-ai-prefs', JSON.stringify(aiPrefs)); } catch (e) {} }
+
+  const aiSettingsOverlay = document.getElementById('aiSettingsOverlay');
+  const aiAutosaveToggle = document.getElementById('aiAutosaveToggle');
+  const aiAutosaveInterval = document.getElementById('aiAutosaveInterval');
+
+  function paintAiSettingsForm() {
+    document.querySelectorAll('input[name="aiMode"]').forEach(r => { r.checked = (r.value === aiPrefs.mode); });
+    aiAutosaveToggle.checked = aiPrefs.autosaveEnabled;
+    aiAutosaveInterval.value = String(aiPrefs.autosaveInterval);
+  }
+  document.getElementById('navAiSettings').addEventListener('click', () => {
+    paintAiSettingsForm();
+    aiSettingsOverlay.classList.add('show');
+  });
+  document.getElementById('aiSettingsCloseBtn').addEventListener('click', () => aiSettingsOverlay.classList.remove('show'));
+  aiSettingsOverlay.addEventListener('click', (e) => { if (e.target === aiSettingsOverlay) aiSettingsOverlay.classList.remove('show'); });
+  document.querySelectorAll('input[name="aiMode"]').forEach(r => {
+    r.addEventListener('change', () => { aiPrefs.mode = r.value; saveAiPrefs(); });
+  });
+  aiAutosaveToggle.addEventListener('change', () => {
+    aiPrefs.autosaveEnabled = aiAutosaveToggle.checked; saveAiPrefs();
+    if (typeof startAutosaveTimer === 'function' && isEditorOpen()) startAutosaveTimer();
+  });
+  aiAutosaveInterval.addEventListener('change', () => {
+    aiPrefs.autosaveInterval = parseInt(aiAutosaveInterval.value, 10) || 30; saveAiPrefs();
+    if (typeof startAutosaveTimer === 'function' && isEditorOpen()) startAutosaveTimer();
+  });
+
+  // ================= Data =================
+  const spineColors = ['#7C8B6F', '#5C7380', '#B08968', '#9B7E9B', '#7A8B99'];
+  const catOrder = ['chapters', 'scenes', 'characters', 'locations', 'items'];
+  const catConfig = {
+    chapters:   { title: 'Chapters',   icon: '&#9776;', nameLabel: 'Chapter title', desc: 'The scenes and sections of your book, in whatever order helps you write.' },
+    scenes:     { title: 'Scenes',     icon: '&#10086;', nameLabel: 'Scene title', desc: 'Smaller beats and moments &mdash; useful for planning before they settle into chapters.' },
+    characters: { title: 'Characters', icon: '&#9737;', nameLabel: 'Character name', desc: 'Everyone who matters to the story, however minor.' },
+    locations:  { title: 'Locations',  icon: '&#8982;', nameLabel: 'Location name', desc: 'The places your story happens in.' },
+    items:      { title: 'Items',      icon: '&#9670;', nameLabel: 'Item name', desc: 'Objects worth tracking &mdash; a weapon, an heirloom, anything with weight.' },
+  };
+
+  let projects = [];
+  try { const saved = localStorage.getItem('marginalia-projects-v3'); if (saved) projects = JSON.parse(saved); } catch (e) { projects = []; }
+  // migrate: ensure every category array exists (adds "scenes" to older saved books)
+  projects.forEach(p => { catOrder.forEach(c => { if (!Array.isArray(p[c])) p[c] = []; }); if (p.lastOpened === undefined) p.lastOpened = null; if (!p.theme) p.theme = 'rainy'; });
+  function saveProjects() {
+    setSaveStatus('saving', 'Saving changes...');
+    try {
+      localStorage.setItem('marginalia-projects-v3', JSON.stringify(projects));
+      if (window.MarginaliaV2) window.MarginaliaV2.scheduleProjectSync(projects.find(project => project.id === activeProjectId));
+      markSaved();
+      return true;
+    } catch (e) {
+      setSaveStatus('dirty', 'Could not save changes');
+      return false;
+    }
+  }
+  function watchFields(fields) {
+    Object.values(fields).forEach(field => field.addEventListener('input', markUnsaved));
+  }
+
+  function newProjectSkeleton(title, cover, color, theme) {
+    const p = { id: 'p_' + Date.now() + Math.random().toString(36).slice(2,7), title, cover: cover || null, color, theme: theme || 'rainy', updated: Date.now(), brainDump: '', lastOpened: null };
+    catOrder.forEach(c => p[c] = []);
+    return p;
+  }
+
+  function timeAgo(ts) {
+    const diff = Date.now() - ts, mins = Math.floor(diff/60000);
+    if (mins < 1) return 'just now';
+    if (mins < 60) return mins + 'm ago';
+    const hrs = Math.floor(mins/60); if (hrs < 24) return hrs + 'h ago';
+    return Math.floor(hrs/24) + 'd ago';
+  }
+  function coverInnerHTML() {
+    return `<span class="cover-icon">&#128214;</span><span class="cover-hint">No cover yet<br>Recommended: 400 &times; 600px</span>`;
+  }
+
+  // ================= View switching =================
+  const libraryView = document.getElementById('libraryView');
+  const projectView = document.getElementById('projectView');
+  const hubView = document.getElementById('hubView');
+  const brainView = document.getElementById('brainView');
+  const allViews = [libraryView, projectView, hubView, brainView];
+  const navProjectBlock = document.getElementById('navProjectBlock');
+  const navAllProjects = document.getElementById('navAllProjects');
+  const navCurrentRow = document.getElementById('navCurrentRow');
+  let activeProjectId = null;
+  let activeCat = null;
+
+  function switchTo(view) {
+    allViews.forEach(v => v.classList.remove('show'));
+    view.classList.add('show');
+    view.classList.add('fading-in');
+    setTimeout(() => view.classList.remove('fading-in'), 260);
+    window.scrollTo(0, 0);
+  }
+
+  function showLibraryInstant() {
+    activeProjectId = null; activeCat = null;
+    switchTo(libraryView);
+    navProjectBlock.classList.remove('show');
+    navAllProjects.classList.add('active');
+    renderLibrary();
+    repaint();
+  }
+
+  function goBackToLibrary() {
+    const current = document.querySelector('.view.show');
+    current.classList.add('fading-out');
+    setTimeout(() => { current.classList.remove('fading-out'); showLibraryInstant(); }, 170);
+  }
+
+  document.getElementById('navBackBtn').addEventListener('click', goBackToLibrary);
+  document.getElementById('navHomeBtn').addEventListener('click', goBackToLibrary);
+  navAllProjects.addEventListener('click', () => { if (activeProjectId) goBackToLibrary(); });
+  navCurrentRow.addEventListener('click', () => { if (activeProjectId) { activeCat = null; switchTo(projectView); highlightNavSubitems(); } });
+
+  // ================= Library rendering =================
+  const grid = document.getElementById('grid');
+  const addCard = document.getElementById('addCard');
+  const shelfCount = document.getElementById('shelfCount');
+
+  function renderLibrary() {
+    grid.querySelectorAll('.book').forEach(b => b.remove());
+    shelfCount.textContent = projects.length + (projects.length === 1 ? ' project' : ' projects');
+    projects.slice().sort((a,b) => b.updated - a.updated).forEach(p => {
+      const el = document.createElement('div');
+      el.className = 'book';
+      el.dataset.id = p.id;
+      el.innerHTML = `
+        <div class="book-cover-hitbox">
+          <button class="book-delete" title="Delete book" type="button">&times;</button>
+          <div class="book-cover ${p.cover ? '' : 'placeholder'}" style="--spine:${p.color}; ${p.cover ? `background-image:url('${p.cover}')` : ''}">
+            ${p.cover ? '' : coverInnerHTML()}
+          </div>
+        </div>
+        <div class="book-title">${p.title}</div>
+        <div class="book-meta">opened ${timeAgo(p.updated)}</div>
+      `;
+      el.querySelector('.book-cover-hitbox').addEventListener('click', (e) => {
+        if (e.target.closest('.book-delete')) return;
+        expandBookIntoProject(p.id, el.querySelector('.book-cover'));
+      });
+      el.querySelector('.book-delete').addEventListener('click', (e) => { e.stopPropagation(); openDeleteFlow(p.id, false); });
+      grid.insertBefore(el, addCard);
+    });
+  }
+
+  // ================= FLIP expand =================
+  const expandGhost = document.getElementById('expandGhost');
+  const mainEl = document.querySelector('.main');
+
+  function expandBookIntoProject(id, coverEl) {
+    const p = projects.find(x => x.id === id);
+    if (!p) return;
+    const rect = coverEl.getBoundingClientRect();
+    const bookEl = coverEl.closest('.book');
+
+    expandGhost.style.setProperty('--spine', p.color);
+    expandGhost.style.backgroundColor = p.color;
+    expandGhost.style.backgroundImage = p.cover ? `url('${p.cover}')` : 'none';
+    expandGhost.style.top = rect.top + 'px';
+    expandGhost.style.left = rect.left + 'px';
+    expandGhost.style.width = rect.width + 'px';
+    expandGhost.style.height = rect.height + 'px';
+    expandGhost.style.borderRadius = '4px 7px 7px 4px';
+    expandGhost.style.opacity = '1';
+    expandGhost.classList.add('show');
+    bookEl.classList.add('expanding');
+
+    void expandGhost.offsetWidth;
+
+    const targetRect = mainEl.getBoundingClientRect();
+    expandGhost.style.top = targetRect.top + 'px';
+    expandGhost.style.left = targetRect.left + 'px';
+    expandGhost.style.width = targetRect.width + 'px';
+    expandGhost.style.height = targetRect.height + 'px';
+    expandGhost.style.borderRadius = '10px';
+
+    let done = false;
+    const finish = () => {
+      if (done) return; done = true;
+      expandGhost.style.opacity = '0';
+      showProjectOverview(id);
+      setTimeout(() => { expandGhost.classList.remove('show'); bookEl.classList.remove('expanding'); }, 150);
+    };
+    expandGhost.addEventListener('transitionend', finish, { once: true });
+    setTimeout(finish, 500);
+  }
+
+  function showProjectOverview(id) {
+    activeProjectId = id; activeCat = null;
+    const p = projects.find(x => x.id === id);
+    if (!p) return showLibraryInstant();
+    p.updated = Date.now(); saveProjects();
+    navProjectBlock.classList.add('show');
+    navAllProjects.classList.remove('active');
+    renderProjectHeader(p);
+    renderCategoryCounts(p);
+    renderResumeBanner(p);
+    switchTo(projectView);
+    highlightNavSubitems();
+    repaint();
+  }
+
+  // ================= New book modal =================
+  const newBookOverlay = document.getElementById('newBookOverlay');
+  const newTitleInput = document.getElementById('newTitleInput');
+  const newCoverPreview = document.getElementById('newCoverPreview');
+  const newCoverFileInput = document.getElementById('newCoverFileInput');
+  const swatchesEl = document.getElementById('swatches');
+  let newSelectedColor = spineColors[0];
+  let newCoverData = null;
+
+  spineColors.forEach((c, i) => {
+    const s = document.createElement('div');
+    s.className = 'swatch' + (i === 0 ? ' selected' : '');
+    s.style.background = c;
+    s.addEventListener('click', () => {
+      newSelectedColor = c;
+      swatchesEl.querySelectorAll('.swatch').forEach(el => el.classList.remove('selected'));
+      s.classList.add('selected');
+      newCoverPreview.style.setProperty('--spine', c);
+    });
+    swatchesEl.appendChild(s);
+  });
+
+  function resetNewModal() {
+    newTitleInput.value = ''; newCoverData = null; newSelectedColor = spineColors[0];
+    newCoverPreview.style.backgroundImage = 'none';
+    newCoverPreview.innerHTML = coverInnerHTML();
+    newCoverPreview.classList.add('placeholder');
+    newCoverPreview.style.setProperty('--spine', spineColors[0]);
+    swatchesEl.querySelectorAll('.swatch').forEach((el,i) => el.classList.toggle('selected', i===0));
+    newThemeSelect.value = appTheme;
+  }
+
+  addCard.addEventListener('click', () => { resetNewModal(); newBookOverlay.classList.add('show'); setTimeout(()=>newTitleInput.focus(),50); });
+  document.getElementById('newCancelBtn').addEventListener('click', () => newBookOverlay.classList.remove('show'));
+  newBookOverlay.addEventListener('click', (e) => { if (e.target === newBookOverlay) newBookOverlay.classList.remove('show'); });
+  document.getElementById('newCoverBtn').addEventListener('click', () => newCoverFileInput.click());
+  newCoverFileInput.addEventListener('change', () => {
+    const file = newCoverFileInput.files[0]; if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => { newCoverData = reader.result; newCoverPreview.style.backgroundImage = `url('${newCoverData}')`; newCoverPreview.innerHTML=''; newCoverPreview.classList.remove('placeholder'); };
+    reader.readAsDataURL(file);
+    newCoverFileInput.value = '';
+  });
+  document.getElementById('newCreateBtn').addEventListener('click', () => {
+    const title = newTitleInput.value.trim();
+    if (!title) { newTitleInput.focus(); return; }
+    const p = newProjectSkeleton(title, newCoverData, newSelectedColor, newThemeSelect.value);
+    projects.push(p); saveProjects();
+    newBookOverlay.classList.remove('show');
+    renderLibrary();
+  });
+  newTitleInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') document.getElementById('newCreateBtn').click(); });
+
+  // ================= Project header =================
+  const projectTitleInput = document.getElementById('projectTitleInput');
+  const projectCoverMini = document.getElementById('projectCoverMini');
+  const navCurrentCover = document.getElementById('navCurrentCover');
+  const navCurrentTitle = document.getElementById('navCurrentTitle');
+
+  function renderProjectHeader(p) {
+    projectTitleInput.value = p.title;
+    paintMiniCover(projectCoverMini, p);
+    paintMiniCover(navCurrentCover, p);
+    navCurrentTitle.textContent = p.title;
+    const themeInfo = THEMES[p.theme] || THEMES.rainy;
+    document.getElementById('projectThemeTag').textContent = themeInfo.name;
+  }
+  function paintMiniCover(el, p) {
+    el.style.setProperty('--spine', p.color);
+    el.style.backgroundImage = p.cover ? `url('${p.cover}')` : 'none';
+  }
+  projectTitleInput.addEventListener('input', () => {
+    const p = projects.find(x => x.id === activeProjectId); if (!p) return;
+    p.title = projectTitleInput.value; navCurrentTitle.textContent = p.title || 'Untitled book'; saveProjects();
+  });
+  projectTitleInput.addEventListener('blur', () => {
+    const p = projects.find(x => x.id === activeProjectId); if (!p) return;
+    if (!projectTitleInput.value.trim()) { projectTitleInput.value = 'Untitled book'; p.title = 'Untitled book'; saveProjects(); }
+  });
+  const coverFileInput = document.getElementById('coverFileInput');
+  projectCoverMini.addEventListener('click', () => coverFileInput.click());
+  coverFileInput.addEventListener('change', () => {
+    if (!activeProjectId) return;
+    const file = coverFileInput.files[0]; if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const p = projects.find(x => x.id === activeProjectId); if (!p) return;
+      p.cover = reader.result; saveProjects();
+      paintMiniCover(projectCoverMini, p); paintMiniCover(navCurrentCover, p);
+    };
+    reader.readAsDataURL(file);
+    coverFileInput.value = '';
+  });
+
+  // ================= Category counts + resume =================
+  function renderCategoryCounts(p) {
+    catOrder.forEach(c => {
+      const el = document.querySelector(`[data-count="${c}"]`);
+      if (el) el.textContent = p[c].length + ' ' + (p[c].length === 1 ? catConfig[c].nameLabel.split(' ')[0].toLowerCase() : catConfig[c].title.toLowerCase());
+    });
+    document.getElementById('brainDumpStatus').textContent = p.brainDump && p.brainDump.trim() ? 'in progress' : 'empty';
+  }
+
+  const resumeBanner = document.getElementById('resumeBanner');
+  const resumeName = document.getElementById('resumeName');
+  const resumeTime = document.getElementById('resumeTime');
+  function renderResumeBanner(p) {
+    if (!p.lastOpened) { resumeBanner.classList.remove('show'); return; }
+    const lo = p.lastOpened;
+    let label = lo.cat === 'brainDump' ? 'Brain dump' : (catConfig[lo.cat].title.slice(0, -1) + ': ' + lo.name);
+    resumeName.textContent = label;
+    resumeTime.textContent = timeAgo(lo.ts);
+    resumeBanner.classList.add('show');
+  }
+  resumeBanner.addEventListener('click', () => {
+    const p = projects.find(x => x.id === activeProjectId); if (!p || !p.lastOpened) return;
+    const lo = p.lastOpened;
+    if (lo.cat === 'brainDump') openBrainView();
+    else {
+      openHub(lo.cat);
+      const idx = p[lo.cat].findIndex(e => e._id === lo.entryId);
+      if (idx > -1) openEntryModal(lo.cat, idx);
+    }
+  });
+  function markLastOpened(cat, entryId, name) {
+    const p = projects.find(x => x.id === activeProjectId); if (!p) return;
+    p.lastOpened = { cat, entryId: entryId || null, name, ts: Date.now() };
+    p.updated = Date.now(); saveProjects();
+  }
+
+  // ================= Nav subitems =================
+  function highlightNavSubitems() {
+    document.querySelectorAll('.nav-subitem').forEach(el => {
+      const cat = el.getAttribute('data-cat');
+      const isBrain = el.hasAttribute('data-brain');
+      el.classList.toggle('active', (cat && cat === activeCat) || (isBrain && activeCat === 'brainDump'));
+    });
+  }
+  document.querySelectorAll('.nav-subitem[data-cat]').forEach(el => {
+    el.addEventListener('click', () => { if (activeProjectId) openHub(el.getAttribute('data-cat')); });
+  });
+  document.querySelector('.nav-subitem[data-brain]').addEventListener('click', () => { if (activeProjectId) openBrainView(); });
+
+  document.querySelectorAll('.cat-card[data-cat]').forEach(card => {
+    card.addEventListener('click', () => openHub(card.getAttribute('data-cat')));
+  });
+  document.getElementById('brainDumpCard').addEventListener('click', openBrainView);
+
+  // ================= Hub view =================
+  const hubCrumbTitle = document.getElementById('hubCrumbTitle');
+  const hubIcon = document.getElementById('hubIcon');
+  const hubTitle = document.getElementById('hubTitle');
+  const hubDesc = document.getElementById('hubDesc');
+  const hubGrid = document.getElementById('hubGrid');
+
+  function openHub(cat) {
+    activeCat = cat;
+    const p = projects.find(x => x.id === activeProjectId); if (!p) return;
+    const cfg = catConfig[cat];
+    hubCrumbTitle.textContent = 'Back to ' + p.title;
+    hubIcon.innerHTML = cfg.icon;
+    hubTitle.textContent = cfg.title;
+    hubDesc.innerHTML = cfg.desc;
+    renderHubGrid(cat, p);
+    switchTo(hubView);
+    highlightNavSubitems();
+  }
+  function stripHtml(html) {
+    const tmp = document.createElement('div');
+    tmp.innerHTML = html;
+    return (tmp.textContent || '').trim();
+  }
+  function escapeHtml(s) { return String(s == null ? '' : s).replace(/</g, '&lt;'); }
+  function escapeRegex(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+  function buildMatchTerms(name) {
+    const core = name.trim().replace(/^(the|a|an)\s+/i, '');
+    const terms = new Set([name.trim(), core]);
+    const firstWord = core.split(/\s+/)[0];
+    if (firstWord) terms.add(firstWord);
+    return Array.from(terms).filter(t => t.length > 1);
+  }
+  function textMentionsEntity(text, name) {
+    if (!name) return false;
+    return buildMatchTerms(name).some(term => new RegExp('\\b' + escapeRegex(term) + '\\b', 'i').test(text));
+  }
+  function renderHubGrid(cat, p) {
+    hubGrid.innerHTML = '';
+    p[cat].forEach((entry, idx) => {
+      const card = document.createElement('div');
+      card.className = 'hub-entry-card';
+      if (cat === 'characters') {
+        const thumb = entry.images && entry.images[0] ? `<div class="hub-entry-thumb" style="background-image:url('${entry.images[0]}')"></div>` : '';
+        const snippet = entry.role || entry.personality || entry.goal || '';
+        card.innerHTML = `${thumb}<div class="hub-entry-name">${entry.name || 'Untitled'}</div><div class="hub-entry-snippet">${snippet ? snippet.replace(/</g,'&lt;') : '<span class="hub-entry-empty">No details yet.</span>'}</div>`;
+      } else if (cat === 'locations') {
+        const thumb = entry.images && entry.images[0] ? `<div class="hub-entry-thumb" style="background-image:url('${entry.images[0]}')"></div>` : '';
+        const snippet = entry.role || entry.description || entry.location || '';
+        card.innerHTML = `${thumb}<div class="hub-entry-name">${entry.name || 'Untitled'}</div><div class="hub-entry-snippet">${snippet ? snippet.replace(/</g,'&lt;') : '<span class="hub-entry-empty">No details yet.</span>'}</div>`;
+      } else if (cat === 'items') {
+        const thumb = entry.images && entry.images[0] ? `<div class="hub-entry-thumb" style="background-image:url('${entry.images[0]}')"></div>` : '';
+        const snippet = entry.point || entry.looks || entry.effects || '';
+        card.innerHTML = `${thumb}<div class="hub-entry-name">${entry.name || 'Untitled'}</div><div class="hub-entry-snippet">${snippet ? snippet.replace(/</g,'&lt;') : '<span class="hub-entry-empty">No details yet.</span>'}</div>`;
+      } else {
+        const plain = stripHtml(entry.details || '');
+        card.innerHTML = `<div class="hub-entry-name">${entry.name || 'Untitled'}</div><div class="hub-entry-snippet">${plain ? plain.replace(/</g,'&lt;') : '<span class="hub-entry-empty">Nothing written yet.</span>'}</div>`;
+      }
+      card.addEventListener('click', () => openEntryModal(cat, idx));
+      hubGrid.appendChild(card);
+    });
+    const addTile = document.createElement('div');
+    addTile.className = 'hub-add-card';
+    addTile.innerHTML = `<span style="font-family:var(--font-serif); font-size:1.3rem; margin-right:8px;">+</span> Add ${catConfig[cat].nameLabel.toLowerCase().includes('title') ? 'a ' + catConfig[cat].title.slice(0,-1).toLowerCase() : 'new'}`;
+    addTile.addEventListener('click', () => openEntryModal(cat, null));
+    hubGrid.appendChild(addTile);
+  }
+  document.getElementById('hubCrumb').addEventListener('click', () => { activeCat = null; switchTo(projectView); highlightNavSubitems(); });
+
+  // ================= Brain dump view =================
+  const brainCrumbTitle = document.getElementById('brainCrumbTitle');
+  const brainTextarea = document.getElementById('brainTextarea');
+  function openBrainView() {
+    activeCat = 'brainDump';
+    const p = projects.find(x => x.id === activeProjectId); if (!p) return;
+    brainCrumbTitle.textContent = 'Back to ' + p.title;
+    brainTextarea.value = p.brainDump || '';
+    switchTo(brainView);
+    highlightNavSubitems();
+    startAutosaveTimer();
+  }
+  document.getElementById('brainCrumb').addEventListener('click', () => { activeCat = null; stopAutosaveTimer(); switchTo(projectView); highlightNavSubitems(); });
+  function saveBrainDump() {
+    const p = projects.find(x => x.id === activeProjectId); if (!p) return;
+    p.brainDump = brainTextarea.value; p.updated = Date.now(); saveProjects();
+    renderCategoryCounts(p);
+    markLastOpened('brainDump', null, 'Brain dump');
+  }
+  brainTextarea.addEventListener('input', markUnsaved);
+  document.getElementById('brainSaveBtn').addEventListener('click', saveBrainDump);
+
+  // ================= Writer modal (Chapters / Scenes) =================
+  const entryOverlay = document.getElementById('entryOverlay');
+  const entryNameInput = document.getElementById('entryNameInput');
+  const entryContentEditable = document.getElementById('entryContentEditable');
+  const entryDeleteBtn = document.getElementById('entryDeleteBtn');
+  let entryIndex = null;
+  let entryCat = null;
+
+  function openEntryModal(cat, idx) {
+    if (cat === 'characters') { openCharacterModal(idx); return; }
+    if (cat === 'locations') { openLocationModal(idx); return; }
+    if (cat === 'items') { openItemModal(idx); return; }
+    entryCat = cat; entryIndex = idx;
+    const cfg = catConfig[cat];
+    entryNameInput.placeholder = 'Untitled ' + cfg.title.slice(0, -1).toLowerCase();
+    entryContentEditable.setAttribute('data-placeholder', 'Start writing...');
+    if (idx === null) {
+      entryNameInput.value = ''; entryContentEditable.innerHTML = '';
+      entryDeleteBtn.style.visibility = 'hidden';
+    } else {
+      const p = projects.find(x => x.id === activeProjectId);
+      const entry = p[cat][idx];
+      entryNameInput.value = entry.name || '';
+      entryContentEditable.innerHTML = entry.details || '';
+      entryDeleteBtn.style.visibility = 'visible';
+    }
+    writerFilter = 'all';
+    document.querySelectorAll('#writerFilterChips .chip').forEach(c => c.classList.toggle('active', c.getAttribute('data-filter') === 'all'));
+    closeWriterDrawer();
+    renderWriterSidebar();
+    entryOverlay.classList.add('show');
+    setTimeout(() => entryNameInput.focus(), 50);
+    startAutosaveTimer();
+  }
+  function closeWriterModal() {
+    entryOverlay.classList.remove('show');
+    stopAutosaveTimer();
+    markSaved();
+  }
+  document.getElementById('entryCancelBtn').addEventListener('click', closeWriterModal);
+  entryOverlay.addEventListener('click', (e) => { if (e.target === entryOverlay) closeWriterModal(); });
+  entryNameInput.addEventListener('input', markUnsaved);
+
+  function performEntrySave(close) {
+    const p = projects.find(x => x.id === activeProjectId); if (!p) return;
+    const cfg = catConfig[entryCat];
+    const name = entryNameInput.value.trim() || ('Untitled ' + cfg.title.slice(0, -1).toLowerCase());
+    const details = entryContentEditable.innerHTML;
+    let savedId;
+    if (entryIndex === null) {
+      savedId = 'e_' + Date.now() + Math.random().toString(36).slice(2,6);
+      p[entryCat].push({ _id: savedId, name, details });
+      entryIndex = p[entryCat].length - 1; // subsequent autosaves edit this same entry
+      entryDeleteBtn.style.visibility = 'visible';
+    } else {
+      const existing = p[entryCat][entryIndex];
+      savedId = existing._id || ('e_' + Date.now());
+      p[entryCat][entryIndex] = { _id: savedId, name, details };
+    }
+    p.updated = Date.now(); saveProjects();
+    renderCategoryCounts(p);
+    renderHubGrid(entryCat, p);
+    markLastOpened(entryCat, savedId, name);
+    if (close) closeWriterModal();
+  }
+  document.getElementById('entrySaveBtn').addEventListener('click', () => performEntrySave(true));
+  entryDeleteBtn.addEventListener('click', () => {
+    const p = projects.find(x => x.id === activeProjectId); if (!p || entryIndex === null) return;
+    p[entryCat].splice(entryIndex, 1);
+    saveProjects();
+    closeWriterModal();
+    renderCategoryCounts(p);
+    renderHubGrid(entryCat, p);
+  });
+
+  // ---- Autosave (interval + preference are wired now; used by AI review mode later too) ----
+  let autosaveTimer = null;
+  let autosaveInProgress = false;
+  function startAutosaveTimer() {
+    stopAutosaveTimer();
+    if (!aiPrefs.autosaveEnabled) return;
+    autosaveTimer = setInterval(() => {
+      autosaveInProgress = true;
+      const saved = saveActiveContent();
+      autosaveInProgress = false;
+      if (!saved) stopAutosaveTimer();
+    }, aiPrefs.autosaveInterval * 60 * 1000);
+  }
+  function stopAutosaveTimer() { if (autosaveTimer) { clearInterval(autosaveTimer); autosaveTimer = null; } }
+
+  // ---- Mentioned-in-this-scene sidebar (V1: name matching) ----
+  let writerFilter = 'all';
+  const writerSidebar = document.getElementById('writerSidebar');
+  const writerEntityList = document.getElementById('writerEntityList');
+  const writerSidebarCount = document.getElementById('writerSidebarCount');
+  const writerDrawerHandle = document.getElementById('writerDrawerHandle');
+
+  document.querySelectorAll('#writerFilterChips .chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      document.querySelectorAll('#writerFilterChips .chip').forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+      writerFilter = chip.getAttribute('data-filter');
+      renderWriterSidebar();
+    });
+  });
+
+  function renderWriterSidebar() {
+    const p = projects.find(x => x.id === activeProjectId);
+    writerEntityList.innerHTML = '';
+    if (!p) return;
+    const text = entryContentEditable.textContent || '';
+    const cats = writerFilter === 'all' ? ['characters', 'locations', 'items'] : [writerFilter];
+    let matches = [];
+    cats.forEach(cat => {
+      (p[cat] || []).forEach((entry, i) => { if (textMentionsEntity(text, entry.name)) matches.push({ cat, entry, i }); });
+    });
+    writerSidebarCount.textContent = matches.length ? String(matches.length) : '';
+    if (!matches.length) {
+      writerEntityList.innerHTML = `<div class="writer-entity-empty">Nothing recognized yet. Character, location, and item names you've already built will show up here as you write them.</div>`;
+      return;
+    }
+    matches.forEach(({ cat, entry, i }) => {
+      const card = document.createElement('div');
+      card.className = 'writer-entity-card';
+      const typeLabel = cat === 'characters' ? 'Character' : cat === 'locations' ? 'Location' : 'Item';
+      const thumb = entry.images && entry.images[0] ? `<div class="we-thumb" style="background-image:url('${entry.images[0]}')"></div>` : '';
+      let lines = '';
+      if (cat === 'characters') {
+        if (entry.role) lines += `<div class="we-line"><b>Role:</b> ${escapeHtml(entry.role)}</div>`;
+        if (entry.personality) lines += `<div class="we-line"><b>Personality:</b> ${escapeHtml(entry.personality)}</div>`;
+        if (entry.tags) lines += `<div class="we-line"><b>Tags:</b> ${escapeHtml(entry.tags)}</div>`;
+      } else if (cat === 'locations') {
+        if (entry.sights) lines += `<div class="we-line"><b>Sights:</b> ${escapeHtml(entry.sights)}</div>`;
+        if (entry.sounds) lines += `<div class="we-line"><b>Sounds:</b> ${escapeHtml(entry.sounds)}</div>`;
+        if (entry.smells) lines += `<div class="we-line"><b>Smells:</b> ${escapeHtml(entry.smells)}</div>`;
+        if (entry.features) lines += `<div class="we-line"><b>Unique features:</b> ${escapeHtml(entry.features)}</div>`;
+      } else {
+        if (entry.effects) lines += `<div class="we-line"><b>Effects:</b> ${escapeHtml(entry.effects)}</div>`;
+        if (entry.looks) lines += `<div class="we-line"><b>Looks:</b> ${escapeHtml(entry.looks)}</div>`;
+        if (entry.weaknesses) lines += `<div class="we-line"><b>Weaknesses:</b> ${escapeHtml(entry.weaknesses)}</div>`;
+      }
+      if (!lines) lines = `<div class="we-line" style="font-style:italic;">No details filled in yet.</div>`;
+      card.innerHTML = `${thumb}<div class="we-type">${typeLabel}</div><div class="we-name">${escapeHtml(entry.name)}</div>${lines}`;
+      card.addEventListener('click', () => {
+        if (cat === 'characters') openCharacterModal(i);
+        else if (cat === 'locations') openLocationModal(i);
+        else openItemModal(i);
+      });
+      writerEntityList.appendChild(card);
+    });
+  }
+  let writerDebounceTimer = null;
+  entryContentEditable.addEventListener('input', () => {
+    clearTimeout(writerDebounceTimer);
+    writerDebounceTimer = setTimeout(renderWriterSidebar, 350);
+  });
+
+  // Mobile drawer: tap or drag the handle to open/close
+  let writerDrawerOpen = false;
+  let dragging = false, dragStartY = 0, dragMoved = false;
+  function openWriterDrawer() { writerDrawerOpen = true; writerSidebar.classList.add('open'); }
+  function closeWriterDrawer() { writerDrawerOpen = false; writerSidebar.classList.remove('open'); }
+  writerDrawerHandle.addEventListener('pointerdown', (e) => {
+    if (window.innerWidth > 860) return;
+    dragging = true; dragMoved = false; dragStartY = e.clientY;
+    writerSidebar.style.transition = 'none';
+    try { writerDrawerHandle.setPointerCapture(e.pointerId); } catch (err) {}
+  });
+  writerDrawerHandle.addEventListener('pointermove', (e) => {
+    if (!dragging) return;
+    const deltaY = e.clientY - dragStartY;
+    if (Math.abs(deltaY) > 6) dragMoved = true;
+    const closedOffset = writerSidebar.offsetHeight - 54;
+    const base = writerDrawerOpen ? 0 : closedOffset;
+    const newOffset = Math.max(0, Math.min(closedOffset, base + deltaY));
+    writerSidebar.style.transform = `translateY(${newOffset}px)`;
+  });
+  function endWriterDrag(e) {
+    if (!dragging) return;
+    dragging = false;
+    writerSidebar.style.transition = '';
+    writerSidebar.style.transform = '';
+    const deltaY = e.clientY - dragStartY;
+    if (!dragMoved) { writerDrawerOpen ? closeWriterDrawer() : openWriterDrawer(); return; }
+    if (writerDrawerOpen) { deltaY > 40 ? closeWriterDrawer() : openWriterDrawer(); }
+    else { deltaY < -40 ? openWriterDrawer() : closeWriterDrawer(); }
+  }
+  writerDrawerHandle.addEventListener('pointerup', endWriterDrag);
+  writerDrawerHandle.addEventListener('pointercancel', endWriterDrag);
+
+  // ---- Toolbar wiring for the writer modal ----
+  function rtExec(cmd, value) {
+    entryContentEditable.focus();
+    document.execCommand(cmd, false, value);
+    updateToolbarState();
+  }
+  document.querySelectorAll('#rtToolbar button[data-cmd]').forEach(btn => {
+    btn.addEventListener('click', () => rtExec(btn.getAttribute('data-cmd')));
+  });
+  document.getElementById('rtFormatBlock').addEventListener('change', (e) => { rtExec('formatBlock', e.target.value); });
+  document.getElementById('rtFontName').addEventListener('change', (e) => { rtExec('fontName', e.target.value); });
+  document.getElementById('rtFontSize').addEventListener('change', (e) => { rtExec('fontSize', e.target.value); });
+  document.getElementById('rtColor').addEventListener('input', (e) => { rtExec('foreColor', e.target.value); });
+  function updateToolbarState() {
+    ['bold', 'italic', 'underline', 'strikeThrough'].forEach(cmd => {
+      const btn = document.querySelector(`#rtToolbar button[data-cmd="${cmd}"]`);
+      if (!btn) return;
+      let active = false;
+      try { active = document.queryCommandState(cmd); } catch (e) {}
+      btn.classList.toggle('active', active);
+    });
+  }
+  entryContentEditable.addEventListener('input', markUnsaved);
+  entryContentEditable.addEventListener('keyup', updateToolbarState);
+  entryContentEditable.addEventListener('mouseup', updateToolbarState);
+
+  // ================= Character template modal =================
+  const characterOverlay = document.getElementById('characterOverlay');
+  const charModalTitle = document.getElementById('charModalTitle');
+  const charImageGrid = document.getElementById('charImageGrid');
+  const charImageFileInput = document.getElementById('charImageFileInput');
+  const charFields = {
+    name: document.getElementById('charName'),
+    role: document.getElementById('charRole'),
+    goal: document.getElementById('charGoal'),
+    age: document.getElementById('charAge'),
+    sex: document.getElementById('charSex'),
+    physical: document.getElementById('charPhysical'),
+    attire: document.getElementById('charAttire'),
+    personality: document.getElementById('charPersonality'),
+    occupation: document.getElementById('charOccupation'),
+    habits: document.getElementById('charHabits'),
+    background: document.getElementById('charBackground'),
+    internal: document.getElementById('charInternal'),
+    external: document.getElementById('charExternal'),
+    tags: document.getElementById('charTags'),
+    notes: document.getElementById('charNotes'),
+  };
+  let charIndex = null;
+  let charImages = [];
+  watchFields(charFields);
+
+  const imgLightbox = document.getElementById('imgLightbox');
+  const imgLightboxImg = document.getElementById('imgLightboxImg');
+  function openLightbox(src) {
+    imgLightboxImg.src = src;
+    requestAnimationFrame(() => imgLightbox.classList.add('show'));
+  }
+  function closeLightbox() {
+    imgLightbox.classList.remove('show');
+    setTimeout(() => { imgLightboxImg.src = ''; }, 240);
+  }
+  imgLightbox.addEventListener('click', closeLightbox);
+
+  // Resize an uploaded image down to a comfortable working size before storing it,
+  // so a giant camera photo doesn't get saved (and re-loaded) at full resolution.
+  function resizeImageFile(file, maxDim) {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const img = new Image();
+        img.onload = () => {
+          let { width, height } = img;
+          if (width > maxDim || height > maxDim) {
+            if (width >= height) { height = Math.round(height * (maxDim / width)); width = maxDim; }
+            else { width = Math.round(width * (maxDim / height)); height = maxDim; }
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = width; canvas.height = height;
+          canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+          resolve(canvas.toDataURL('image/jpeg', 0.88));
+        };
+        img.onerror = () => resolve(reader.result);
+        img.src = reader.result;
+      };
+      reader.onerror = () => resolve(null);
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function renderCharImageGrid() {
+    charImageGrid.innerHTML = '';
+    charImages.forEach((src, i) => {
+      const thumb = document.createElement('div');
+      thumb.className = 'char-image-thumb';
+      thumb.innerHTML = `<img src="${src}" alt="Reference image"><div class="zoom-hint"><span class="zoom-icon">&#10086;</span><span class="zoom-text">Click to enlarge</span></div><button class="remove-img" type="button" title="Remove image">&times;</button>`;
+      thumb.querySelector('img').addEventListener('click', () => openLightbox(src));
+      thumb.querySelector('.remove-img').addEventListener('click', () => { charImages.splice(i, 1); markUnsaved(); renderCharImageGrid(); });
+      charImageGrid.appendChild(thumb);
+    });
+    const addTile = document.createElement('div');
+    addTile.className = 'char-image-add';
+    addTile.title = 'Add image';
+    addTile.textContent = '+';
+    addTile.addEventListener('click', () => charImageFileInput.click());
+    charImageGrid.appendChild(addTile);
+  }
+  charImageFileInput.addEventListener('change', async () => {
+    const files = Array.from(charImageFileInput.files || []);
+    if (!files.length) return;
+    for (const file of files) {
+      const dataUrl = await resizeImageFile(file, 800);
+      if (dataUrl) { charImages.push(dataUrl); markUnsaved(); }
+    }
+    renderCharImageGrid();
+    charImageFileInput.value = '';
+  });
+
+  function openCharacterModal(idx) {
+    charIndex = idx;
+    if (idx === null) {
+      charModalTitle.textContent = 'New character';
+      Object.values(charFields).forEach(el => el.value = '');
+      charImages = [];
+      document.getElementById('charDeleteBtn').style.visibility = 'hidden';
+    } else {
+      const p = projects.find(x => x.id === activeProjectId);
+      const entry = p.characters[idx];
+      charModalTitle.textContent = 'Edit character';
+      Object.keys(charFields).forEach(key => { charFields[key].value = entry[key] || ''; });
+      charImages = (entry.images || []).slice();
+      document.getElementById('charDeleteBtn').style.visibility = 'visible';
+    }
+    renderCharImageGrid();
+    characterOverlay.classList.add('show');
+    startAutosaveTimer();
+    setTimeout(() => charFields.name.focus(), 50);
+  }
+  document.getElementById('charCancelBtn').addEventListener('click', () => { stopAutosaveTimer(); characterOverlay.classList.remove('show'); markSaved(); });
+  characterOverlay.addEventListener('click', (e) => { if (e.target === characterOverlay) { stopAutosaveTimer(); characterOverlay.classList.remove('show'); markSaved(); } });
+
+  document.getElementById('charSaveBtn').addEventListener('click', () => {
+    const p = projects.find(x => x.id === activeProjectId); if (!p) return;
+    const name = charFields.name.value.trim() || 'Untitled character';
+    const data = { name, images: charImages.slice() };
+    Object.keys(charFields).forEach(key => { if (key !== 'name') data[key] = charFields[key].value.trim(); });
+    let savedId;
+    if (charIndex === null) {
+      savedId = 'e_' + Date.now() + Math.random().toString(36).slice(2,6);
+      data._id = savedId;
+      p.characters.push(data);
+    } else {
+      const existing = p.characters[charIndex];
+      savedId = existing._id || ('e_' + Date.now());
+      data._id = savedId;
+      p.characters[charIndex] = data;
+    }
+    p.updated = Date.now(); saveProjects();
+    if (!autosaveInProgress) characterOverlay.classList.remove('show');
+    renderCategoryCounts(p);
+    renderHubGrid('characters', p);
+    markLastOpened('characters', savedId, name);
+  });
+  document.getElementById('charDeleteBtn').addEventListener('click', () => {
+    const p = projects.find(x => x.id === activeProjectId); if (!p || charIndex === null) return;
+    const name = p.characters[charIndex] && p.characters[charIndex].name ? p.characters[charIndex].name : 'this character';
+    if (!window.confirm(`Delete "${name}"? This cannot be undone.`)) return;
+    p.characters.splice(charIndex, 1);
+    saveProjects();
+    characterOverlay.classList.remove('show');
+    renderCategoryCounts(p);
+    renderHubGrid('characters', p);
+  });
+
+  // ================= Location template modal =================
+  const locationOverlay = document.getElementById('locationOverlay');
+  const locModalTitle = document.getElementById('locModalTitle');
+  const locImageGrid = document.getElementById('locImageGrid');
+  const locImageFileInput = document.getElementById('locImageFileInput');
+  const locFields = {
+    name: document.getElementById('locName'),
+    location: document.getElementById('locLocation'),
+    role: document.getElementById('locRole'),
+    characters: document.getElementById('locCharacters'),
+    weather: document.getElementById('locWeather'),
+    features: document.getElementById('locFeatures'),
+    description: document.getElementById('locDescription'),
+    sights: document.getElementById('locSights'),
+    sounds: document.getElementById('locSounds'),
+    smells: document.getElementById('locSmells'),
+    notes: document.getElementById('locNotes'),
+  };
+  let locIndex = null;
+  let locImages = [];
+  watchFields(locFields);
+
+  function renderLocImageGrid() {
+    locImageGrid.innerHTML = '';
+    locImages.forEach((src, i) => {
+      const thumb = document.createElement('div');
+      thumb.className = 'char-image-thumb';
+      thumb.innerHTML = `<img src="${src}" alt="Reference image"><div class="zoom-hint"><span class="zoom-icon">&#10086;</span><span class="zoom-text">Click to enlarge</span></div><button class="remove-img" type="button" title="Remove image">&times;</button>`;
+      thumb.querySelector('img').addEventListener('click', () => openLightbox(src));
+      thumb.querySelector('.remove-img').addEventListener('click', () => { locImages.splice(i, 1); markUnsaved(); renderLocImageGrid(); });
+      locImageGrid.appendChild(thumb);
+    });
+    const addTile = document.createElement('div');
+    addTile.className = 'char-image-add';
+    addTile.title = 'Add image';
+    addTile.textContent = '+';
+    addTile.addEventListener('click', () => locImageFileInput.click());
+    locImageGrid.appendChild(addTile);
+  }
+  locImageFileInput.addEventListener('change', async () => {
+    const files = Array.from(locImageFileInput.files || []);
+    if (!files.length) return;
+    for (const file of files) {
+      const dataUrl = await resizeImageFile(file, 800);
+      if (dataUrl) { locImages.push(dataUrl); markUnsaved(); }
+    }
+    renderLocImageGrid();
+    locImageFileInput.value = '';
+  });
+
+  function openLocationModal(idx) {
+    locIndex = idx;
+    if (idx === null) {
+      locModalTitle.textContent = 'New location';
+      Object.values(locFields).forEach(el => el.value = '');
+      locImages = [];
+      document.getElementById('locDeleteBtn').style.visibility = 'hidden';
+    } else {
+      const p = projects.find(x => x.id === activeProjectId);
+      const entry = p.locations[idx];
+      locModalTitle.textContent = 'Edit location';
+      Object.keys(locFields).forEach(key => { locFields[key].value = entry[key] || ''; });
+      locImages = (entry.images || []).slice();
+      document.getElementById('locDeleteBtn').style.visibility = 'visible';
+    }
+    renderLocImageGrid();
+    locationOverlay.classList.add('show');
+    startAutosaveTimer();
+    setTimeout(() => locFields.name.focus(), 50);
+  }
+  document.getElementById('locCancelBtn').addEventListener('click', () => { stopAutosaveTimer(); locationOverlay.classList.remove('show'); markSaved(); });
+  locationOverlay.addEventListener('click', (e) => { if (e.target === locationOverlay) { stopAutosaveTimer(); locationOverlay.classList.remove('show'); markSaved(); } });
+
+  document.getElementById('locSaveBtn').addEventListener('click', () => {
+    const p = projects.find(x => x.id === activeProjectId); if (!p) return;
+    const name = locFields.name.value.trim() || 'Untitled location';
+    const data = { name, images: locImages.slice() };
+    Object.keys(locFields).forEach(key => { if (key !== 'name') data[key] = locFields[key].value.trim(); });
+    let savedId;
+    if (locIndex === null) {
+      savedId = 'e_' + Date.now() + Math.random().toString(36).slice(2,6);
+      data._id = savedId;
+      p.locations.push(data);
+    } else {
+      const existing = p.locations[locIndex];
+      savedId = existing._id || ('e_' + Date.now());
+      data._id = savedId;
+      p.locations[locIndex] = data;
+    }
+    p.updated = Date.now(); saveProjects();
+    if (!autosaveInProgress) locationOverlay.classList.remove('show');
+    renderCategoryCounts(p);
+    renderHubGrid('locations', p);
+    markLastOpened('locations', savedId, name);
+  });
+  document.getElementById('locDeleteBtn').addEventListener('click', () => {
+    const p = projects.find(x => x.id === activeProjectId); if (!p || locIndex === null) return;
+    const name = p.locations[locIndex] && p.locations[locIndex].name ? p.locations[locIndex].name : 'this location';
+    if (!window.confirm(`Delete "${name}"? This cannot be undone.`)) return;
+    p.locations.splice(locIndex, 1);
+    saveProjects();
+    locationOverlay.classList.remove('show');
+    renderCategoryCounts(p);
+    renderHubGrid('locations', p);
+  });
+
+  // ================= Item template modal =================
+  const itemOverlay = document.getElementById('itemOverlay');
+  const itemModalTitle = document.getElementById('itemModalTitle');
+  const itemImageGrid = document.getElementById('itemImageGrid');
+  const itemImageFileInput = document.getElementById('itemImageFileInput');
+  const itemFields = {
+    name: document.getElementById('itemName'),
+    point: document.getElementById('itemPoint'),
+    looks: document.getElementById('itemLooks'),
+    sounds: document.getElementById('itemSounds'),
+    effects: document.getElementById('itemEffects'),
+    weaknesses: document.getElementById('itemWeaknesses'),
+    designer: document.getElementById('itemDesigner'),
+    designWhy: document.getElementById('itemDesignWhy'),
+    notes: document.getElementById('itemNotes'),
+  };
+  let itemIndex = null;
+  let itemImages = [];
+  watchFields(itemFields);
+
+  function renderItemImageGrid() {
+    itemImageGrid.innerHTML = '';
+    itemImages.forEach((src, i) => {
+      const thumb = document.createElement('div');
+      thumb.className = 'char-image-thumb';
+      thumb.innerHTML = `<img src="${src}" alt="Reference image"><div class="zoom-hint"><span class="zoom-icon">&#10086;</span><span class="zoom-text">Click to enlarge</span></div><button class="remove-img" type="button" title="Remove image">&times;</button>`;
+      thumb.querySelector('img').addEventListener('click', () => openLightbox(src));
+      thumb.querySelector('.remove-img').addEventListener('click', () => { itemImages.splice(i, 1); markUnsaved(); renderItemImageGrid(); });
+      itemImageGrid.appendChild(thumb);
+    });
+    const addTile = document.createElement('div');
+    addTile.className = 'char-image-add';
+    addTile.title = 'Add image';
+    addTile.textContent = '+';
+    addTile.addEventListener('click', () => itemImageFileInput.click());
+    itemImageGrid.appendChild(addTile);
+  }
+  itemImageFileInput.addEventListener('change', async () => {
+    const files = Array.from(itemImageFileInput.files || []);
+    if (!files.length) return;
+    for (const file of files) {
+      const dataUrl = await resizeImageFile(file, 800);
+      if (dataUrl) { itemImages.push(dataUrl); markUnsaved(); }
+    }
+    renderItemImageGrid();
+    itemImageFileInput.value = '';
+  });
+
+  function openItemModal(idx) {
+    itemIndex = idx;
+    if (idx === null) {
+      itemModalTitle.textContent = 'New item';
+      Object.values(itemFields).forEach(el => el.value = '');
+      itemImages = [];
+      document.getElementById('itemDeleteBtn').style.visibility = 'hidden';
+    } else {
+      const p = projects.find(x => x.id === activeProjectId);
+      const entry = p.items[idx];
+      itemModalTitle.textContent = 'Edit item';
+      Object.keys(itemFields).forEach(key => { itemFields[key].value = entry[key] || ''; });
+      itemImages = (entry.images || []).slice();
+      document.getElementById('itemDeleteBtn').style.visibility = 'visible';
+    }
+    renderItemImageGrid();
+    itemOverlay.classList.add('show');
+    startAutosaveTimer();
+    setTimeout(() => itemFields.name.focus(), 50);
+  }
+  document.getElementById('itemCancelBtn').addEventListener('click', () => { stopAutosaveTimer(); itemOverlay.classList.remove('show'); markSaved(); });
+  itemOverlay.addEventListener('click', (e) => { if (e.target === itemOverlay) { stopAutosaveTimer(); itemOverlay.classList.remove('show'); markSaved(); } });
+
+  document.getElementById('itemSaveBtn').addEventListener('click', () => {
+    const p = projects.find(x => x.id === activeProjectId); if (!p) return;
+    const name = itemFields.name.value.trim() || 'Untitled item';
+    const data = { name, images: itemImages.slice() };
+    Object.keys(itemFields).forEach(key => { if (key !== 'name') data[key] = itemFields[key].value.trim(); });
+    let savedId;
+    if (itemIndex === null) {
+      savedId = 'e_' + Date.now() + Math.random().toString(36).slice(2,6);
+      data._id = savedId;
+      p.items.push(data);
+    } else {
+      const existing = p.items[itemIndex];
+      savedId = existing._id || ('e_' + Date.now());
+      data._id = savedId;
+      p.items[itemIndex] = data;
+    }
+    p.updated = Date.now(); saveProjects();
+    if (!autosaveInProgress) itemOverlay.classList.remove('show');
+    renderCategoryCounts(p);
+    renderHubGrid('items', p);
+    markLastOpened('items', savedId, name);
+  });
+  document.getElementById('itemDeleteBtn').addEventListener('click', () => {
+    const p = projects.find(x => x.id === activeProjectId); if (!p || itemIndex === null) return;
+    const name = p.items[itemIndex] && p.items[itemIndex].name ? p.items[itemIndex].name : 'this item';
+    if (!window.confirm(`Delete "${name}"? This cannot be undone.`)) return;
+    p.items.splice(itemIndex, 1);
+    saveProjects();
+    itemOverlay.classList.remove('show');
+    renderCategoryCounts(p);
+    renderHubGrid('items', p);
+  });
+
+  // ================= Delete flow =================
+  const deleteStep1Overlay = document.getElementById('deleteStep1Overlay');
+  const deleteStep2Overlay = document.getElementById('deleteStep2Overlay');
+  const deleteStep1Title = document.getElementById('deleteStep1Title');
+  const deleteStep2Text = document.getElementById('deleteStep2Text');
+  let deleteTargetId = null;
+  let deleteFromProjectView = false;
+
+  function openDeleteFlow(id, fromProjectView) {
+    deleteTargetId = id; deleteFromProjectView = fromProjectView;
+    const p = projects.find(x => x.id === id);
+    deleteStep1Title.textContent = `Delete "${p ? p.title : 'this book'}"?`;
+    deleteStep1Overlay.classList.add('show');
+  }
+  document.getElementById('deleteBookLink').addEventListener('click', () => { if (activeProjectId) openDeleteFlow(activeProjectId, true); });
+  document.getElementById('deleteStep1Cancel').addEventListener('click', () => deleteStep1Overlay.classList.remove('show'));
+  deleteStep1Overlay.addEventListener('click', (e) => { if (e.target === deleteStep1Overlay) deleteStep1Overlay.classList.remove('show'); });
+  document.getElementById('deleteStep1Confirm').addEventListener('click', () => {
+    const p = projects.find(x => x.id === deleteTargetId);
+    deleteStep2Text.textContent = `This will 100% delete "${p ? p.title : 'this book'}". There's no undo — it will be gone for good. Are you positive?`;
+    deleteStep1Overlay.classList.remove('show');
+    deleteStep2Overlay.classList.add('show');
+  });
+  document.getElementById('deleteStep2Cancel').addEventListener('click', () => deleteStep2Overlay.classList.remove('show'));
+  deleteStep2Overlay.addEventListener('click', (e) => { if (e.target === deleteStep2Overlay) deleteStep2Overlay.classList.remove('show'); });
+  document.getElementById('deleteStep2Confirm').addEventListener('click', () => {
+    projects = projects.filter(x => x.id !== deleteTargetId);
+    saveProjects();
+    deleteStep2Overlay.classList.remove('show');
+    if (deleteFromProjectView && activeProjectId === deleteTargetId) showLibraryInstant();
+    else renderLibrary();
+    deleteTargetId = null;
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    stopAutosaveTimer();
+    [newBookOverlay, entryOverlay, characterOverlay, locationOverlay, itemOverlay, deleteStep1Overlay, deleteStep2Overlay, aiSettingsOverlay].forEach(o => o.classList.remove('show'));
+    markSaved();
+  });
+
+  function saveActiveContent() {
+    if (entryOverlay.classList.contains('show')) { performEntrySave(false); return true; }
+    if (characterOverlay.classList.contains('show')) { document.getElementById('charSaveBtn').click(); return true; }
+    if (locationOverlay.classList.contains('show')) { document.getElementById('locSaveBtn').click(); return true; }
+    if (itemOverlay.classList.contains('show')) { document.getElementById('itemSaveBtn').click(); return true; }
+    if (brainView.classList.contains('show')) { saveBrainDump(); return true; }
+    return false;
+  }
+  function isEditorOpen() {
+    return [entryOverlay, characterOverlay, locationOverlay, itemOverlay].some(overlay => overlay.classList.contains('show')) || brainView.classList.contains('show');
+  }
+  globalSaveBtn.addEventListener('click', () => {
+    if (!saveActiveContent()) setSaveStatus('saved', 'Nothing currently open to save');
+  });
+  window.addEventListener('beforeunload', (e) => {
+    if (!globalSaveBar.classList.contains('is-dirty')) return;
+    e.preventDefault();
+    e.returnValue = '';
+  });
+
+  // ================= Init =================
+  renderLibrary();
+  repaint();
+</script>
+</body>
+</html>
