@@ -16,7 +16,7 @@ create table public.documents (
   id uuid primary key default gen_random_uuid(),
   client_key text not null unique,
   book_id uuid not null references public.books(id) on delete cascade,
-  kind text not null check (kind in ('chapter', 'scene')),
+  kind text not null check (kind in ('chapter', 'scene', 'brain_dump')),
   title text not null default '',
   content_html text not null default '',
   content_text text not null default '',

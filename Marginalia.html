@@ -722,9 +722,9 @@
           <div class="cat-icon">&#9670;</div>
           <div><div class="cat-name">Add an Item</div><div class="cat-count" data-count="items">0 items</div></div>
         </div>
-        <div class="cat-card" id="brainDumpCard">
+        <div class="cat-card" data-cat="brainDumps">
           <div class="cat-icon">&#9729;</div>
-          <div><div class="cat-name">Brain Dump</div><div class="cat-count" id="brainDumpStatus">empty</div></div>
+          <div><div class="cat-name">Add a Brain Dump</div><div class="cat-count" data-count="brainDumps">0 brain dumps</div></div>
         </div>
       </div>
     </div>
@@ -1202,6 +1202,7 @@
     </div>
   </div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="supabase/v2-adapter.js"></script>
 <script>
   const root = document.documentElement;
@@ -1217,11 +1218,16 @@
   function markUnsaved() { setSaveStatus('dirty', 'Unsaved changes'); }
   function markSaved() { setSaveStatus('saved', 'All changes saved'); }
 
-  // ================= Auth (prototype only) =================
-  // NOTE: credentials are stored in plain text in the browser's localStorage.
-  // This is only for early design/testing. Before real users touch this,
-  // swap this whole block for a real backend + hashed passwords, and
-  // delete the admin bypass button below.
+  // ================= Supabase Auth =================
+  const SUPABASE_URL = 'https://svzhtvasgnndvfemnjtv.supabase.co';
+  const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_pA7U5Amb6Fg2d64AEsIk6g_-euO1C0U';
+  const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+  window.MarginaliaV2.config.supabaseUrl = SUPABASE_URL;
+  window.MarginaliaV2.config.anonKey = SUPABASE_PUBLISHABLE_KEY;
+  window.MarginaliaV2.setStatusListener((state, message) => {
+    setSaveStatus(state === 'syncing' ? 'saving' : state === 'error' ? 'dirty' : 'saved', message);
+  });
+
   const loginScreen = document.getElementById('loginScreen');
   const appRoot = document.getElementById('appRoot');
   const loginError = document.getElementById('loginError');
@@ -1232,12 +1238,6 @@
   const loginSubmitBtn = document.getElementById('loginSubmitBtn');
   const sessionEmail = document.getElementById('sessionEmail');
 
-  function loadUsers() {
-    try { return JSON.parse(localStorage.getItem('marginalia-users') || '{}'); } catch (e) { return {}; }
-  }
-  function saveUsers(users) {
-    try { localStorage.setItem('marginalia-users', JSON.stringify(users)); } catch (e) {}
-  }
   function isValidEmail(v) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v); }
 
   let authMode = 'login'; // 'login' | 'signup'
@@ -1255,37 +1255,46 @@
   function showLoginError(msg) { loginError.textContent = msg; loginError.classList.add('show'); }
   function hideLoginError() { loginError.classList.remove('show'); }
 
-  function revealApp(email) {
+  function revealApp(email, accessToken) {
     loginScreen.classList.add('hidden');
     appRoot.classList.remove('hidden');
     sessionEmail.textContent = email === 'admin-test@local' ? 'Admin (testing)' : email;
+    window.MarginaliaV2.setAccessToken(accessToken || '');
     try { localStorage.setItem('marginalia-session', email); } catch (e) {}
   }
 
-  loginSubmitBtn.addEventListener('click', () => {
+  loginSubmitBtn.addEventListener('click', async () => {
     const email = loginEmail.value.trim().toLowerCase();
     const pass = loginPassword.value;
     hideLoginError();
     if (!isValidEmail(email)) { showLoginError('Enter a valid email address.'); return; }
     if (!pass) { showLoginError('Enter a password.'); return; }
 
-    const users = loadUsers();
-    if (authMode === 'signup') {
-      if (users[email]) { showLoginError('An account with that email already exists. Try logging in instead.'); return; }
-      if (pass.length < 4) { showLoginError('Password should be at least 4 characters.'); return; }
-      users[email] = pass;
-      saveUsers(users);
-      revealApp(email);
-    } else {
-      if (!users[email] || users[email] !== pass) { showLoginError('Incorrect email or password.'); return; }
-      revealApp(email);
+    loginSubmitBtn.disabled = true;
+    loginSubmitBtn.textContent = authMode === 'login' ? 'Logging in...' : 'Creating account...';
+    const result = authMode === 'signup'
+      ? await supabaseClient.auth.signUp({ email, password: pass })
+      : await supabaseClient.auth.signInWithPassword({ email, password: pass });
+    loginSubmitBtn.disabled = false;
+    setAuthMode(authMode);
+
+    if (result.error) {
+      showLoginError(result.error.message);
+      return;
     }
+    if (!result.data.session) {
+      showLoginError('Account created. Check your email to confirm it, then log in.');
+      return;
+    }
+    revealApp(result.data.user.email, result.data.session.access_token);
   });
   [loginEmail, loginPassword].forEach(el => el.addEventListener('keydown', (e) => { if (e.key === 'Enter') loginSubmitBtn.click(); }));
 
   document.getElementById('adminBypassBtn').addEventListener('click', () => revealApp('admin-test@local'));
 
-  document.getElementById('logoutBtn').addEventListener('click', () => {
+  document.getElementById('logoutBtn').addEventListener('click', async () => {
+    await supabaseClient.auth.signOut();
+    window.MarginaliaV2.setAccessToken('');
     try { localStorage.removeItem('marginalia-session'); } catch (e) {}
     appRoot.classList.add('hidden');
     loginScreen.classList.remove('hidden');
@@ -1293,13 +1302,15 @@
     setAuthMode('login');
   });
 
-  // Restore an existing session on load
-  (function checkSession() {
-    let session = null;
-    try { session = localStorage.getItem('marginalia-session'); } catch (e) {}
-    if (session) revealApp(session);
+  // Restore the Supabase session on load.
+  (async function checkSession() {
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    if (session) revealApp(session.user.email, session.access_token);
     else { loginScreen.classList.remove('hidden'); appRoot.classList.add('hidden'); }
   })();
+  supabaseClient.auth.onAuthStateChange((_event, session) => {
+    window.MarginaliaV2.setAccessToken(session ? session.access_token : '');
+  });
 
 
   // ================= Themes =================
@@ -1551,19 +1562,27 @@
 
   // ================= Data =================
   const spineColors = ['#7C8B6F', '#5C7380', '#B08968', '#9B7E9B', '#7A8B99'];
-  const catOrder = ['chapters', 'scenes', 'characters', 'locations', 'items'];
+  const catOrder = ['chapters', 'scenes', 'characters', 'locations', 'items', 'brainDumps'];
   const catConfig = {
     chapters:   { title: 'Chapters',   icon: '&#9776;', nameLabel: 'Chapter title', desc: 'The scenes and sections of your book, in whatever order helps you write.' },
     scenes:     { title: 'Scenes',     icon: '&#10086;', nameLabel: 'Scene title', desc: 'Smaller beats and moments &mdash; useful for planning before they settle into chapters.' },
     characters: { title: 'Characters', icon: '&#9737;', nameLabel: 'Character name', desc: 'Everyone who matters to the story, however minor.' },
     locations:  { title: 'Locations',  icon: '&#8982;', nameLabel: 'Location name', desc: 'The places your story happens in.' },
     items:      { title: 'Items',      icon: '&#9670;', nameLabel: 'Item name', desc: 'Objects worth tracking &mdash; a weapon, an heirloom, anything with weight.' },
+    brainDumps: { title: 'Brain Dumps', icon: '&#9729;', nameLabel: 'Brain dump title', desc: 'Loose thoughts, half-formed ideas, and anything you want to keep close while the story takes shape.' },
   };
 
   let projects = [];
   try { const saved = localStorage.getItem('marginalia-projects-v3'); if (saved) projects = JSON.parse(saved); } catch (e) { projects = []; }
-  // migrate: ensure every category array exists (adds "scenes" to older saved books)
-  projects.forEach(p => { catOrder.forEach(c => { if (!Array.isArray(p[c])) p[c] = []; }); if (p.lastOpened === undefined) p.lastOpened = null; if (!p.theme) p.theme = 'rainy'; });
+  // migrate older books from one brain dump into the reusable brainDumps collection
+  projects.forEach(p => {
+    catOrder.forEach(c => { if (!Array.isArray(p[c])) p[c] = []; });
+    if (p.brainDump && p.brainDumps.length === 0) {
+      p.brainDumps.push({ _id: 'e_' + Date.now() + Math.random().toString(36).slice(2,6), name: 'Brain Dump', details: p.brainDump });
+    }
+    if (p.lastOpened === undefined) p.lastOpened = null;
+    if (!p.theme) p.theme = 'rainy';
+  });
   function saveProjects() {
     setSaveStatus('saving', 'Saving changes...');
     try {
@@ -1825,7 +1844,6 @@
       const el = document.querySelector(`[data-count="${c}"]`);
       if (el) el.textContent = p[c].length + ' ' + (p[c].length === 1 ? catConfig[c].nameLabel.split(' ')[0].toLowerCase() : catConfig[c].title.toLowerCase());
     });
-    document.getElementById('brainDumpStatus').textContent = p.brainDump && p.brainDump.trim() ? 'in progress' : 'empty';
   }
 
   const resumeBanner = document.getElementById('resumeBanner');
@@ -1842,7 +1860,7 @@
   resumeBanner.addEventListener('click', () => {
     const p = projects.find(x => x.id === activeProjectId); if (!p || !p.lastOpened) return;
     const lo = p.lastOpened;
-    if (lo.cat === 'brainDump') openBrainView();
+    if (lo.cat === 'brainDump') openHub('brainDumps');
     else {
       openHub(lo.cat);
       const idx = p[lo.cat].findIndex(e => e._id === lo.entryId);
@@ -1860,18 +1878,17 @@
     document.querySelectorAll('.nav-subitem').forEach(el => {
       const cat = el.getAttribute('data-cat');
       const isBrain = el.hasAttribute('data-brain');
-      el.classList.toggle('active', (cat && cat === activeCat) || (isBrain && activeCat === 'brainDump'));
+      el.classList.toggle('active', (cat && cat === activeCat) || (isBrain && activeCat === 'brainDumps'));
     });
   }
   document.querySelectorAll('.nav-subitem[data-cat]').forEach(el => {
     el.addEventListener('click', () => { if (activeProjectId) openHub(el.getAttribute('data-cat')); });
   });
-  document.querySelector('.nav-subitem[data-brain]').addEventListener('click', () => { if (activeProjectId) openBrainView(); });
+  document.querySelector('.nav-subitem[data-brain]').addEventListener('click', () => { if (activeProjectId) openHub('brainDumps'); });
 
   document.querySelectorAll('.cat-card[data-cat]').forEach(card => {
     card.addEventListener('click', () => openHub(card.getAttribute('data-cat')));
   });
-  document.getElementById('brainDumpCard').addEventListener('click', openBrainView);
 
   // ================= Hub view =================
   const hubCrumbTitle = document.getElementById('hubCrumbTitle');
@@ -1960,6 +1977,10 @@
     p.brainDump = brainTextarea.value; p.updated = Date.now(); saveProjects();
     renderCategoryCounts(p);
     markLastOpened('brainDump', null, 'Brain dump');
+    const button = document.getElementById('brainSaveBtn');
+    button.textContent = 'Saved';
+    clearTimeout(button._savedLabelTimer);
+    button._savedLabelTimer = setTimeout(() => { button.textContent = 'Save'; }, 1400);
   }
   brainTextarea.addEventListener('input', markUnsaved);
   document.getElementById('brainSaveBtn').addEventListener('click', saveBrainDump);

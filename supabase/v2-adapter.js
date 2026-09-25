@@ -2,7 +2,7 @@
   'use strict';
 
   const config = {
-    enabled: false,
+    enabled: true,
     supabaseUrl: '',
     anonKey: '',
     accessToken: '',
@@ -10,9 +10,18 @@
 
   let syncTimer = null;
   let pendingProject = null;
+  let statusListener = null;
+
+  function reportStatus(state, message) {
+    if (statusListener) statusListener(state, message);
+  }
 
   function isConfigured() {
     return config.enabled && config.supabaseUrl && config.anonKey && config.accessToken;
+  }
+
+  function setAccessToken(accessToken) {
+    config.accessToken = accessToken || '';
   }
 
   function headers() {
@@ -29,7 +38,10 @@
       ...options,
       headers: { ...headers(), ...(options && options.headers) },
     });
-    if (!response.ok) throw new Error(`V2 request failed: ${response.status}`);
+    if (!response.ok) {
+      const detail = await response.text();
+      throw new Error(`V2 request failed: ${response.status} ${detail.slice(0, 300)}`);
+    }
     return response.status === 204 ? null : response.json();
   }
 
@@ -61,7 +73,7 @@
     return {
       client_key: `${project.id}:${kind}:${entry._id}`,
       book_id: bookId,
-      kind: kind === 'chapters' ? 'chapter' : 'scene',
+      kind: kind === 'chapters' ? 'chapter' : kind === 'scenes' ? 'scene' : 'brain_dump',
       title: entry.name || 'Untitled',
       content_html: contentHtml,
       content_text: contentText,
@@ -71,6 +83,7 @@
 
   async function syncProject(project) {
     if (!isConfigured() || !project) return;
+    reportStatus('syncing', 'Syncing with Supabase...');
     const books = await request('books?on_conflict=client_key&select=id,client_key', {
       method: 'POST',
       headers: { Prefer: 'resolution=merge-duplicates,return=representation' },
@@ -81,15 +94,24 @@
     for (const kind of ['characters', 'locations', 'items']) {
       const entities = (project[kind] || []).map(entry => entityPayload(project, bookId, kind, entry));
       if (entities.length) {
-        await request('entities?on_conflict=client_key', { method: 'POST', body: JSON.stringify(entities) });
+        try {
+          await request('entities?on_conflict=client_key', { method: 'POST', body: JSON.stringify(entities) });
+        } catch (error) {
+          console.warn(`Marginalia V2 ${kind} sync deferred:`, error);
+        }
       }
     }
-    for (const kind of ['chapters', 'scenes']) {
+    for (const kind of ['chapters', 'scenes', 'brainDumps']) {
       const documents = (project[kind] || []).map(entry => documentPayload(project, bookId, kind, entry));
       if (documents.length) {
-        await request('documents?on_conflict=client_key', { method: 'POST', body: JSON.stringify(documents) });
+        try {
+          await request('documents?on_conflict=client_key', { method: 'POST', body: JSON.stringify(documents) });
+        } catch (error) {
+          console.warn(`Marginalia V2 ${kind} sync deferred:`, error);
+        }
       }
     }
+    reportStatus('synced', 'Saved locally and synced to Supabase');
   }
 
   function scheduleProjectSync(project) {
@@ -99,7 +121,12 @@
     syncTimer = setTimeout(async () => {
       const nextProject = pendingProject;
       pendingProject = null;
-      try { await syncProject(nextProject); } catch (error) { console.warn('Marginalia V2 sync deferred:', error); }
+      try {
+        await syncProject(nextProject);
+      } catch (error) {
+        console.warn('Marginalia V2 sync deferred:', error);
+        reportStatus('error', 'Saved locally; Supabase sync needs attention');
+      }
     }, 500);
   }
 
@@ -114,5 +141,12 @@
     return response.json();
   }
 
-  window.MarginaliaV2 = { config, scheduleProjectSync, syncProject, analyzeScene };
+  window.MarginaliaV2 = {
+    config,
+    setAccessToken,
+    setStatusListener(listener) { statusListener = listener; },
+    scheduleProjectSync,
+    syncProject,
+    analyzeScene,
+  };
 })();
