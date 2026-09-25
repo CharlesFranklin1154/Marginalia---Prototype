@@ -141,6 +141,25 @@
     return response.json();
   }
 
+  async function analyzeProjectEntry(project, entry) {
+    if (!isConfigured()) throw new Error('Marginalia V2 backend is not configured.');
+    const books = await request(`books?client_key=eq.${encodeURIComponent(project.id)}&select=id`);
+    const bookId = books && books[0] && books[0].id;
+    if (!bookId) throw new Error('This book has not synced to Supabase yet.');
+    const entities = await request(`entities?book_id=eq.${encodeURIComponent(bookId)}&select=id,client_key,kind,name`);
+    const entityById = new Map(entities.map(entity => [entity.id, entity]));
+    const result = await analyzeScene({
+      bookId,
+      text: (entry.details || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim(),
+      entities: entities.map(entity => ({ id: entity.id, kind: entity.kind, name: entity.name })),
+    });
+    result.suggestions = (result.suggestions || []).map(suggestion => ({
+      ...suggestion,
+      localEntityKey: entityById.get(suggestion.entityId)?.client_key || null,
+    }));
+    return result;
+  }
+
   window.MarginaliaV2 = {
     config,
     setAccessToken,
@@ -148,5 +167,6 @@
     scheduleProjectSync,
     syncProject,
     analyzeScene,
+    analyzeProjectEntry,
   };
 })();
