@@ -1,0 +1,143 @@
+# Marginalia Project Handoff
+
+Last updated: 2026-09-24
+
+## Resume Instruction
+
+Read `Message One`, `Message Two`, and this file before making changes. Treat this file as the current project checkpoint. The user is new to GitHub and Supabase, so explain dashboard, deployment, and Git steps plainly and avoid assuming command-line experience.
+
+## Project Vision
+
+Marginalia is a calm, literary writing workbench that lets the writer do the writing while guiding their memory. It supports both planners and pantsers through books, chapters, scenes, characters, locations, items, Brain Dumps, themes, rich-text writing, and contextual memory suggestions.
+
+## Current Repository State
+
+- Workspace: `C:\Users\CFran\Web Designs\Marginalia`
+- Main app: `Marginalia.html`
+- V1 storage: localStorage, retained as the local/offline source of truth for now
+- Git branch: `main`
+- Last confirmed commit: `Version 3 Updates`
+- Last confirmed repository state: clean and synchronized with `origin/main`
+- GitHub publishing is separate from Supabase Edge Function deployment
+
+## Current Frontend Features
+
+`Marginalia.html` currently includes:
+
+- Supabase Auth sign-in, sign-up, session restore, logout, and token refresh
+- Existing testing/admin bypass
+- Supabase publishable key and project URL configuration
+- Global save status banner
+- Local save plus debounced Supabase sync status
+- Autosave across chapters, scenes, characters, locations, items, and Brain Dumps
+- Browser warning for unsaved changes
+- One-step deletion confirmation for characters, locations, and items
+- Two-step deletion confirmation for books
+- Eleven themes with light/dark modes and ambient decoration
+- Book library and project workspace
+- Chapters, scenes, characters, locations, and items
+- Multiple titled Brain Dumps using the same hub/card/editor flow
+- Migration of an older single `brainDump` string into the first `brainDumps` entry
+- Rich-text editor with line count display
+- Live entity matching sidebar
+- Image resizing to a maximum 800x800px
+- Character/location/item image lightbox
+- `Check memory` button in the generic writing editor
+- Approve/Reject suggestion review panel
+- Character-sheet provenance links such as `(Chapter One - Line 7)`
+- Clicking provenance opens the source entry and selects/highlights the source sentence
+
+## Supabase State
+
+Project URL:
+
+`https://svzhtvasgnndvfemnjtv.supabase.co`
+
+A publishable browser key is configured in `Marginalia.html`. Never add service-role keys, database passwords, or access tokens to GitHub, Message Three, or chat.
+
+Completed Supabase work:
+
+- `supabase/schema.sql` creates books, documents, entities, AI suggestions, row-level security, and ownership checks
+- `supabase/migrations/002_client_keys.sql` was applied successfully
+- The documents kind constraint allows `chapter`, `scene`, and `brain_dump`
+- The V2 adapter is enabled in `supabase/v2-adapter.js`
+- Authenticated books, entities, documents, and Brain Dumps are populating in Supabase
+- `supabase/functions/analyze-scene/index.ts` is deployed as the `analyze-scene` Edge Function
+- The Edge Function includes CORS support for browser POST requests
+
+## V2 Adapter Behavior
+
+`supabase/v2-adapter.js`:
+
+- Uses stable local `client_key` values to map V1 records to Supabase UUIDs
+- Syncs books and the legacy Brain Dump compatibility field
+- Syncs characters, locations, and items to `entities`
+- Syncs chapters, scenes, and Brain Dumps to `documents`
+- Shows sync state in the global save banner
+- Resolves Supabase book/entity IDs before analysis
+- Calls the Edge Function through the authenticated Supabase client
+- Maps returned remote entity IDs back to local entity keys
+
+## Current Mock AI Behavior
+
+The Edge Function is not using a paid AI provider yet. It is deterministic mock logic, so it does not create model-token charges.
+
+It currently recognizes a character mentioned in text containing `scar` or `scarring`. For example:
+
+```text
+Mira touched the scar above her left eye.
+```
+
+It returns a structured suggestion similar to:
+
+```json
+{
+  "type": "character_update",
+  "entityId": "remote-entity-id",
+  "field": "physical",
+  "operation": "append",
+  "value": "Mira has a scar above her left eye.",
+  "evidence": "Mira touched the scar above her left eye.",
+  "sourceLine": 1,
+  "status": "pending"
+}
+```
+
+The current source line is calculated from preserved rich-text line breaks. The frontend stores approved provenance in the character entity's JSON data under `provenance`.
+
+## Known Limitations
+
+- The analyzer only recognizes scar evidence; it is not a real language model yet.
+- Suggestions are not yet inserted into the `ai_suggestions` audit table.
+- Repeated analysis can create repeated local suggestions until the writer rejects or approves them.
+- The current provenance link is implemented for character-sheet updates first.
+- `V2_SETUP.md` still describes some review UI and adapter work as future work and should eventually be refreshed.
+- Supabase Edge Function files show Deno/import diagnostics in the normal VS Code checker because the local editor is not configured with the Deno runtime. Supabase deployment is the authoritative check for that function.
+- The mock login/testing bypass should eventually be removed or clearly isolated before real public use.
+- The old `books.brain_dump` column remains for compatibility; new Brain Dumps are individual `documents` rows with `kind = 'brain_dump'`.
+
+## Immediate Next Steps
+
+1. Confirm the provenance link behavior with a multi-line chapter or scene. Put the evidence on line 7, approve the suggestion, reopen the character sheet, click the link, and verify the editor selects the correct sentence.
+2. Persist every returned suggestion into `ai_suggestions` with book, document, entity, evidence, source line, confidence, and status.
+3. Add deduplication so the same source sentence does not create repeated suggestions.
+4. Expand deterministic mock extraction for clothing, habits, relationships, locations, and items.
+5. Add an explicit review history UI showing pending, approved, and rejected suggestions.
+6. Only after the approval/audit workflow is solid, connect a real AI provider through the Edge Function.
+7. Add provider budget limits, request throttling, chunking, and model settings before enabling paid AI calls.
+
+## Safe Working Process
+
+At the end of a work session:
+
+1. Save files in VS Code.
+2. Check Source Control for modified and untracked files.
+3. Stage all intended changes.
+4. Commit with a descriptive message.
+5. Push or Sync Changes to GitHub.
+6. If `index.ts` changed, separately redeploy `analyze-scene` in Supabase.
+7. Update this file with completed work, tests performed, deployment state, and the next task.
+
+Useful restart prompt:
+
+> Read Message One, Message Two, and Message Three. Verify the current implementation against the handoff, then continue with the next unchecked step without reverting existing work.
