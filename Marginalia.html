@@ -339,6 +339,13 @@
   .ai-suggestion-evidence { margin-top: 5px; color: var(--ink-faint); font-size: 0.72rem; font-style: italic; }
   .ai-suggestion-actions { display: flex; gap: 7px; margin-top: 9px; }
   .ai-suggestion-actions .btn { padding: 4px 9px; font-size: 0.72rem; }
+  .ai-review-history { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--paper-edge); }
+  .ai-review-history-group { border: 1px solid var(--paper-edge); border-radius: 8px; background: rgba(255,255,255,0.28); padding: 10px; }
+  .ai-review-history-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 7px; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.02em; text-transform: uppercase; color: var(--ink-faint); }
+  .ai-review-history-list { display: flex; flex-direction: column; gap: 7px; }
+  .ai-review-history-item { padding: 7px 8px; border-radius: 6px; background: var(--paper); border: 1px solid var(--paper-edge); }
+  .ai-review-history-item .label { font-size: 0.68rem; color: var(--slate-deep); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 3px; }
+  .ai-review-history-item .text { font-size: 0.74rem; color: var(--ink-soft); line-height: 1.4; }
 
   /* ---------- Generic modal ---------- */
   .overlay { position: fixed; inset: 0; background: rgba(30, 34, 31, 0.38); display: none; align-items: center; justify-content: center; z-index: 30; }
@@ -883,6 +890,7 @@
           <span class="ai-review-status" id="entryAiReviewStatus"></span>
         </div>
         <div class="ai-review-list" id="entryAiReviewList"></div>
+        <div class="ai-review-history" id="entryAiReviewHistory"></div>
       </section>
 
       <div class="modal-actions">
@@ -2113,14 +2121,59 @@
   entryOverlay.addEventListener('click', (e) => { if (e.target === entryOverlay) closeWriterModal(); });
   entryNameInput.addEventListener('input', markUnsaved);
 
+  function renderEntryAiReviewHistory() {
+    const historyEl = document.getElementById('entryAiReviewHistory');
+    if (!historyEl) return;
+    const groups = { pending: [], approved: [], rejected: [] };
+    entryAiSuggestions.forEach((suggestion) => {
+      const status = String(suggestion.status || 'pending').toLowerCase();
+      if (groups[status]) groups[status].push(suggestion);
+      else groups.pending.push(suggestion);
+    });
+    historyEl.innerHTML = '';
+    const statuses = [
+      { key: 'pending', label: 'Pending' },
+      { key: 'approved', label: 'Approved' },
+      { key: 'rejected', label: 'Rejected' },
+    ];
+    statuses.forEach(({ key, label }) => {
+      const group = document.createElement('div');
+      group.className = 'ai-review-history-group';
+      const header = document.createElement('div');
+      header.className = 'ai-review-history-header';
+      header.innerHTML = `<span>${label}</span><span>${groups[key].length}</span>`;
+      const list = document.createElement('div');
+      list.className = 'ai-review-history-list';
+      if (!groups[key].length) {
+        const empty = document.createElement('div');
+        empty.className = 'writer-entity-empty';
+        empty.textContent = 'None yet.';
+        list.appendChild(empty);
+      } else {
+        groups[key].forEach((suggestion) => {
+          const item = document.createElement('div');
+          item.className = 'ai-review-history-item';
+          item.innerHTML = `<div class="label">${escapeHtml(suggestion.field || 'memory')}</div><div class="text">${escapeHtml(suggestion.value || suggestion.evidence || 'No detail')}</div>`;
+          list.appendChild(item);
+        });
+      }
+      group.append(header, list);
+      historyEl.appendChild(group);
+    });
+  }
+
   function renderEntryAiReview() {
     entryAiReviewList.innerHTML = '';
+    const summary = window.MarginaliaV2 && window.MarginaliaV2.summarizeSuggestionStatuses
+      ? window.MarginaliaV2.summarizeSuggestionStatuses(entryAiSuggestions)
+      : { total: entryAiSuggestions.length, pending: entryAiSuggestions.length, approved: 0, rejected: 0 };
+    const statusText = summary.total ? `${summary.total} ${summary.total === 1 ? 'suggestion' : 'suggestions'} · ${summary.pending} pending · ${summary.approved} approved · ${summary.rejected} rejected` : 'Nothing new found';
+    entryAiReviewStatus.textContent = statusText;
     if (!entryAiSuggestions.length) {
-      entryAiReviewStatus.textContent = 'Nothing new found';
       entryAiReviewList.innerHTML = '<div class="writer-entity-empty">No proposed updates for this passage.</div>';
+      renderEntryAiReviewHistory();
       return;
     }
-    entryAiReviewStatus.textContent = entryAiSuggestions.length + (entryAiSuggestions.length === 1 ? ' suggestion' : ' suggestions');
     entryAiSuggestions.forEach((suggestion, index) => {
       const card = document.createElement('div');
       card.className = 'ai-suggestion';
@@ -2132,11 +2185,18 @@
       approve.addEventListener('click', () => approveEntrySuggestion(index, card, approve));
       const reject = document.createElement('button');
       reject.className = 'btn ghost'; reject.type = 'button'; reject.textContent = 'Reject';
-      reject.addEventListener('click', () => { suggestion.status = 'rejected'; approve.disabled = true; reject.disabled = true; reject.textContent = 'Rejected'; });
+      reject.addEventListener('click', () => {
+        suggestion.status = 'rejected';
+        approve.disabled = true;
+        reject.disabled = true;
+        reject.textContent = 'Rejected';
+        renderEntryAiReview();
+      });
       actions.append(approve, reject);
       card.appendChild(actions);
       entryAiReviewList.appendChild(card);
     });
+    renderEntryAiReviewHistory();
   }
 
   function approveEntrySuggestion(index, card, button) {
@@ -2167,6 +2227,7 @@
     button.disabled = true;
     button.textContent = 'Approved';
     card.querySelectorAll('button').forEach(action => { action.disabled = true; });
+    renderEntryAiReview();
   }
 
   entryAnalyzeBtn.addEventListener('click', async () => {

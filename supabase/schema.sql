@@ -45,6 +45,7 @@ create table public.ai_suggestions (
   operation text not null check (operation in ('append', 'replace', 'remove')),
   value text not null,
   evidence text not null,
+  source_line integer not null default 1,
   confidence numeric(4,3) not null check (confidence >= 0 and confidence <= 1),
   status text not null default 'pending' check (status in ('pending', 'approved', 'rejected')),
   created_at timestamptz not null default now(),

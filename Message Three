@@ -141,3 +141,17 @@ At the end of a work session:
 Useful restart prompt:
 
 > Read Message One, Message Two, and Message Three. Verify the current implementation against the handoff, then continue with the next unchecked step without reverting existing work.
+
+## Work completed on 2026-09-25
+
+- Verified the provenance link flow was already in place and working in `Marginalia.html` before continuing.
+- Persisted returned suggestions into the Supabase `ai_suggestions` audit table through `supabase/v2-adapter.js` using each suggestion's book, document, entity, evidence, source line, confidence, and status.
+- Added the missing `source_line` column to `supabase/schema.sql` so persisted suggestions capture the exact sentence line number.
+- Added deduplication so repeated suggestions from the same source sentence are filtered before the review panel or audit insert.
+- Expanded the deterministic mock extraction to include clothing, habits, relationships, locations, and item-handling cues in `supabase/functions/analyze-scene/mock-helpers.mjs`.
+- Tested the payload contract and the analyzer expansion with focused regression checks: `node supabase/v2-adapter.test.js` and `node supabase/functions/analyze-scene/mock-helpers.test.mjs` both passed.
+- Deployment state: `supabase/functions/analyze-scene/index.ts` was changed, so the function still needs a Supabase redeploy before the live project uses the new extraction rules.
+
+## Next unchecked task
+
+- Add an explicit review-history UI showing pending, approved, and rejected suggestions.

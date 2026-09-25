@@ -90,6 +90,51 @@
     };
   }
 
+  function buildSuggestionAuditPayload({ bookId, documentId, entityId, suggestion }) {
+    return {
+      book_id: bookId,
+      document_id: documentId || null,
+      entity_id: entityId || null,
+      type: suggestion && suggestion.type ? suggestion.type : 'memory_update',
+      field: suggestion && suggestion.field ? suggestion.field : '',
+      operation: suggestion && suggestion.operation ? suggestion.operation : 'append',
+      value: suggestion && suggestion.value ? String(suggestion.value) : '',
+      evidence: suggestion && (suggestion.evidence || suggestion.sourceText) ? String(suggestion.evidence || suggestion.sourceText) : '',
+      source_line: Number(suggestion && suggestion.sourceLine ? suggestion.sourceLine : 1),
+      confidence: Number(suggestion && suggestion.confidence != null ? suggestion.confidence : 0.5),
+      status: suggestion && suggestion.status ? suggestion.status : 'pending',
+    };
+  }
+
+  function dedupeSuggestions(suggestions) {
+    const seen = new Set();
+    return (Array.isArray(suggestions) ? suggestions : []).filter((suggestion) => {
+      const token = [
+        suggestion && suggestion.entityId != null ? suggestion.entityId : suggestion && suggestion.localEntityKey ? suggestion.localEntityKey : 'anonymous',
+        suggestion && suggestion.field ? String(suggestion.field) : '',
+        suggestion && (suggestion.evidence || suggestion.sourceText) ? String(suggestion.evidence || suggestion.sourceText).trim() : '',
+        suggestion && suggestion.sourceLine != null ? String(suggestion.sourceLine) : '1',
+        suggestion && suggestion.value ? String(suggestion.value).trim() : '',
+      ].join('|');
+      const key = token.toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }
+
+  function summarizeSuggestionStatuses(suggestions) {
+    const list = Array.isArray(suggestions) ? suggestions : [];
+    const summary = { total: list.length, pending: 0, approved: 0, rejected: 0 };
+    for (const suggestion of list) {
+      const status = suggestion && suggestion.status ? String(suggestion.status).toLowerCase() : 'pending';
+      if (status === 'approved') summary.approved += 1;
+      else if (status === 'rejected') summary.rejected += 1;
+      else summary.pending += 1;
+    }
+    return summary;
+  }
+
   async function syncProject(project) {
     if (!isConfigured() || !project) return;
     reportStatus('syncing', 'Syncing with Supabase...');
@@ -163,21 +208,44 @@
     if (!bookId) throw new Error('This book has not synced to Supabase yet.');
     const entities = await request(`entities?book_id=eq.${encodeURIComponent(bookId)}&select=id,client_key,kind,name`);
     const entityById = new Map(entities.map(entity => [entity.id, entity]));
+    const remoteDocumentClientKey = entry && entry.category && entry._id ? `${project.id}:${entry.category}:${entry._id}` : null;
+    const documentMatch = remoteDocumentClientKey
+      ? await request(`documents?book_id=eq.${encodeURIComponent(bookId)}&client_key=eq.${encodeURIComponent(remoteDocumentClientKey)}&select=id,client_key`)
+      : [];
+    const documentId = documentMatch && documentMatch[0] ? documentMatch[0].id : null;
     const result = await analyzeScene({
       bookId,
       text: htmlToPlainText(entry.details),
       entities: entities.map(entity => ({ id: entity.id, kind: entity.kind, name: entity.name })),
     });
-    result.suggestions = (result.suggestions || []).map(suggestion => ({
+    result.suggestions = dedupeSuggestions((result.suggestions || []).map(suggestion => ({
       ...suggestion,
       localEntityKey: entityById.get(suggestion.entityId)?.client_key || null,
-      sourceDocumentKey: entry.category && entry._id ? `${project.id}:${entry.category}:${entry._id}` : null,
+      sourceDocumentKey: remoteDocumentClientKey,
       sourceLabel: entry.sourceLabel || entry.name || 'Untitled entry',
+    })));
+    const suggestionsForAudit = result.suggestions.map(suggestion => buildSuggestionAuditPayload({
+      bookId,
+      documentId,
+      entityId: suggestion.entityId || null,
+      suggestion,
     }));
+    if (suggestionsForAudit.length) {
+      try {
+        await request('ai_suggestions', {
+          method: 'POST',
+          headers: { Prefer: 'return=minimal' },
+          body: JSON.stringify(suggestionsForAudit),
+        });
+      } catch (error) {
+        console.warn('Marginalia V2 suggestion audit deferred:', error);
+      }
+    }
     return result;
   }
 
-  window.MarginaliaV2 = {
+  const root = typeof window !== 'undefined' ? window : globalThis;
+  root.MarginaliaV2 = {
     config,
     setAccessToken,
     setStatusListener(listener) { statusListener = listener; },
@@ -185,5 +253,12 @@
     syncProject,
     analyzeScene,
     analyzeProjectEntry,
+    buildSuggestionAuditPayload,
+    dedupeSuggestions,
+    summarizeSuggestionStatuses,
   };
+
+  if (typeof module !== 'undefined' && module.exports) {
+    module.exports = { buildSuggestionAuditPayload, dedupeSuggestions, summarizeSuggestionStatuses };
+  }
 })();

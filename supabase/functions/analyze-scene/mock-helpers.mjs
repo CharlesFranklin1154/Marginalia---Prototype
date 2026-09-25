@@ -1,0 +1,185 @@
+export function escapeRegex(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+export function findSourceSentence(text, name) {
+  if (!name) return text.trim();
+  const sentenceMatch = text.match(new RegExp(`[^.!?]*\\b${escapeRegex(name)}\\b[^.!?]*[.!?]?`, 'i'));
+  return sentenceMatch ? sentenceMatch[0].trim() : text.trim();
+}
+
+export function findSourceLine(text, sourceSentence) {
+  const sourceIndex = text.indexOf(sourceSentence);
+  return sourceIndex < 0 ? 1 : text.slice(0, sourceIndex).split(/\r?\n/).length;
+}
+
+function makeSuggestion({ entityId, type, field, operation, value, evidence, sourceText, sourceLine, confidence }) {
+  const id = typeof crypto !== 'undefined' && crypto.randomUUID ? `mock-${crypto.randomUUID()}` : `mock-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  return {
+    id,
+    type,
+    entityId,
+    field,
+    operation,
+    value,
+    evidence,
+    sourceText,
+    sourceLine,
+    confidence,
+    status: 'pending',
+  };
+}
+
+function evaluateCharacterSuggestion(entity, text) {
+  const sentences = text.split(/(?<=[.!?])\s+/).filter(Boolean);
+  const results = [];
+
+  for (const sentence of sentences) {
+    const hasName = new RegExp(`\\b${escapeRegex(entity.name)}\\b`, 'i').test(sentence);
+    const entityWasIntroducedEarlier = text.toLowerCase().indexOf(entity.name.toLowerCase()) < text.indexOf(sentence);
+    const hasPronounReference = /\b(?:she|he|they|her|him|their|his|hers)\b/i.test(sentence);
+    if (!hasName && !(entityWasIntroducedEarlier && hasPronounReference)) continue;
+    const lower = sentence.toLowerCase();
+
+    if (/\bscar(?:ring)?\b/i.test(lower)) {
+      const scarMatch = sentence.match(/\bscar(?:ring)?\b([^.!?]*)/i);
+      const detail = scarMatch ? ('a scar' + scarMatch[1]).trim().replace(/[.!?]+$/, '') : 'a scar';
+      results.push(makeSuggestion({
+        entityId: entity.id,
+        type: 'character_update',
+        field: 'physical',
+        operation: 'append',
+        value: `${entity.name} has ${detail}.`,
+        evidence: sentence,
+        sourceText: sentence,
+        sourceLine: findSourceLine(text, sentence),
+        confidence: 0.91,
+      }));
+    }
+
+    if (/\b(?:wear(?:s|ing)?|dressed in|clad in|wrapped in|wore|coat|cloak|dress|boots|gloves|hat|scarf|sash|jacket|cape)\b/i.test(lower)) {
+      const clothingMatch = sentence.match(/(?:wear(?:s|ing)?|dressed in|clad in|wrapped in|wore)\s+(?:a|an|the)?\s*([^.!?]+)/i);
+      const clothing = clothingMatch ? clothingMatch[1].trim().replace(/[.!?]+$/, '') : 'distinctive clothing';
+      results.push(makeSuggestion({
+        entityId: entity.id,
+        type: 'character_update',
+        field: 'physical',
+        operation: 'append',
+        value: `${entity.name} is described in clothing that includes ${clothing}.`,
+        evidence: sentence,
+        sourceText: sentence,
+        sourceLine: findSourceLine(text, sentence),
+        confidence: 0.8,
+      }));
+    }
+
+    if (/\b(?:always|often|habitually|tends to|keeps|fidgets|twirls|chews|hums|stares|nervously|nervous|rubs|licks|taps)\b/i.test(lower)) {
+      const habit = lowercaseHabit(sentence);
+      results.push(makeSuggestion({
+        entityId: entity.id,
+        type: 'character_update',
+        field: 'habits',
+        operation: 'append',
+        value: `${entity.name} ${habit}.`,
+        evidence: sentence,
+        sourceText: sentence,
+        sourceLine: findSourceLine(text, sentence),
+        confidence: 0.75,
+      }));
+    }
+
+    if (/\b(?:friend|sister|brother|mother|father|mentor|rival|enemy|ally|lover|wife|husband|daughter|son|guardian|captain|queen|king|lord|lady|apprentice)\b/i.test(lower)) {
+      const relation = sentence.match(/\b(?:friend|sister|brother|mother|father|mentor|rival|enemy|ally|lover|wife|husband|daughter|son|guardian|captain|queen|king|lord|lady|apprentice)\b/i)?.[0] ?? 'relative';
+      results.push(makeSuggestion({
+        entityId: entity.id,
+        type: 'character_update',
+        field: 'relationships',
+        operation: 'append',
+        value: `${entity.name} is referenced in relation to a ${relation}.`,
+        evidence: sentence,
+        sourceText: sentence,
+        sourceLine: findSourceLine(text, sentence),
+        confidence: 0.72,
+      }));
+    }
+  }
+
+  return results;
+}
+
+function lowercaseHabit(value) {
+  const sentence = value.trim().replace(/[.!?]+$/, '');
+  if (/always/i.test(sentence)) return 'always returns to the same habit';
+  if (/twirls/i.test(sentence)) return 'twirls something when anxious';
+  if (/chews/i.test(sentence)) return 'chews on something when thinking';
+  if (/hums/i.test(sentence)) return 'hums under their breath when thinking';
+  if (/fidgets|nervous/i.test(sentence)) return 'fidgets when anxious';
+  if (/taps|rubs/i.test(sentence)) return 'keeps a nervous habit of tapping or rubbing objects';
+  return 'has a recurring behavioral habit';
+}
+
+function evaluateLocationSuggestion(entity, text) {
+  const sourceText = findSourceSentence(text, entity.name);
+  if (!sourceText) return null;
+  const lower = sourceText.toLowerCase();
+  if (!/(?:in|at|inside|outside|near|by|beside|beyond|through|under|across|along|past)/i.test(lower)) return null;
+  return makeSuggestion({
+    entityId: entity.id,
+    type: 'location_update',
+    field: 'description',
+    operation: 'append',
+    value: `${entity.name} is part of the setting described in this passage.`,
+    evidence: sourceText,
+    sourceText,
+    sourceLine: findSourceLine(text, sourceText),
+    confidence: 0.7,
+  });
+}
+
+function evaluateItemSuggestion(entity, text) {
+  const sourceText = findSourceSentence(text, entity.name);
+  if (!sourceText) return null;
+  const lower = sourceText.toLowerCase();
+  if (!/(?:carried|held|used|dropped|picked up|kept in|gripped|wore|slung|packed|set down|tucked|brought|twirl(?:s|ed)?|fiddled with|played with)/i.test(lower)) return null;
+  return makeSuggestion({
+    entityId: entity.id,
+    type: 'item_update',
+    field: 'details',
+    operation: 'append',
+    value: `${entity.name} is actively relevant to the immediate scene and may matter later.`,
+    evidence: sourceText,
+    sourceText,
+    sourceLine: findSourceLine(text, sourceText),
+    confidence: 0.68,
+  });
+}
+
+export function buildMockSuggestions(text, entities) {
+  const suggestions = [];
+  const safeEntities = Array.isArray(entities) ? entities : [];
+
+  for (const entity of safeEntities) {
+    if (!entity || !entity.name || !entity.id) continue;
+    const sourceText = findSourceSentence(text, entity.name);
+    if (!sourceText || !sourceText.trim()) continue;
+
+    if (entity.kind === 'character') {
+      const entitySuggestions = evaluateCharacterSuggestion(entity, text);
+      suggestions.push(...entitySuggestions);
+      continue;
+    }
+
+    if (entity.kind === 'location') {
+      const suggestion = evaluateLocationSuggestion(entity, text);
+      if (suggestion) suggestions.push(suggestion);
+      continue;
+    }
+
+    if (entity.kind === 'item') {
+      const suggestion = evaluateItemSuggestion(entity, text);
+      if (suggestion) suggestions.push(suggestion);
+    }
+  }
+
+  return suggestions;
+}

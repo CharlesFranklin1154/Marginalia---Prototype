@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { buildMockSuggestions } from './mock-helpers.mjs';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -18,54 +19,6 @@ type AnalyzeRequest = {
 
 function response(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: corsHeaders });
-}
-
-function escapeRegex(value: string) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
-function buildCharacterMemory(text: string, name: string) {
-  const sentence = findSourceSentence(text, name);
-  const scarMatch = sentence.match(/\bscar(?:ring)?\b([^.!?]*)/i);
-  const detail = scarMatch ? ('a scar' + scarMatch[1]).trim().replace(/[.!?]+$/, '') : 'a scar';
-  return `${name} has ${detail}.`;
-}
-
-function findSourceSentence(text: string, name: string) {
-  const sentenceMatch = text.match(new RegExp(`[^.!?]*\\b${escapeRegex(name)}\\b[^.!?]*[.!?]?`, 'i'));
-  return sentenceMatch ? sentenceMatch[0].trim() : text.trim();
-}
-
-function findSourceLine(text: string, sourceSentence: string) {
-  const sourceIndex = text.indexOf(sourceSentence);
-  return sourceIndex < 0 ? 1 : text.slice(0, sourceIndex).split(/\r?\n/).length;
-}
-
-function buildMockSuggestions(text: string, entities: Entity[]) {
-  const suggestions = [];
-  const scarEvidence = /\b(?:scar|scarring)\b/i.test(text);
-
-  for (const entity of entities) {
-    if (!scarEvidence || entity.kind !== 'character') continue;
-    const mentioned = new RegExp(`\\b${escapeRegex(entity.name)}\\b`, 'i').test(text);
-    if (!mentioned) continue;
-    const sourceText = findSourceSentence(text, entity.name);
-    suggestions.push({
-      id: `mock-${crypto.randomUUID()}`,
-      type: 'character_update',
-      entityId: entity.id,
-      field: 'physical',
-      operation: 'append',
-      value: buildCharacterMemory(text, entity.name),
-      evidence: sourceText,
-      sourceText,
-      sourceLine: findSourceLine(text, sourceText),
-      confidence: 0.91,
-      status: 'pending',
-    });
-  }
-
-  return suggestions;
 }
 
 Deno.serve(async (request) => {
