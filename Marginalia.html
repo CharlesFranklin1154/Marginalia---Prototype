@@ -323,6 +323,11 @@
   .global-save-bar.is-dirty .global-save-dot { background: var(--rust); }
   .global-save-bar.is-saving .global-save-dot { background: var(--slate); }
   .global-save-button { padding: 5px 10px; font-size: 0.75rem; }
+  .entry-line-count { margin-right: auto; color: var(--ink-faint); font-size: 0.72rem; }
+  .source-provenance { display: inline-block; margin-left: 7px; font-size: 0.7rem; font-weight: 400; }
+  .source-provenance a { color: var(--slate-deep); cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+  .source-provenance a:hover { color: var(--ink); }
+  .rich-editor.source-focus { outline: 2px solid var(--moss); outline-offset: -2px; }
   .ai-review-panel { display: none; margin-top: 14px; padding: 14px; border: 1px solid var(--paper-edge); border-radius: 8px; background: var(--bg); }
   .ai-review-panel.show { display: block; }
   .ai-review-header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 9px; }
@@ -883,6 +888,7 @@
       <div class="modal-actions">
         <button class="btn ghost" id="entryDeleteBtn" type="button" style="color:var(--rust-deep);">Delete</button>
         <div class="modal-actions-right">
+          <span class="entry-line-count" id="entryLineCount">Line 1</span>
           <button class="btn ghost" id="entryCancelBtn" type="button">Cancel</button>
           <button class="btn ghost" id="entryAnalyzeBtn" type="button">Check memory</button>
           <button class="btn primary" id="entrySaveBtn" type="button">Save</button>
@@ -1242,6 +1248,7 @@
   const SUPABASE_URL = 'https://svzhtvasgnndvfemnjtv.supabase.co';
   const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_pA7U5Amb6Fg2d64AEsIk6g_-euO1C0U';
   const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+  window.marginaliaSupabaseClient = supabaseClient;
   window.MarginaliaV2.config.supabaseUrl = SUPABASE_URL;
   window.MarginaliaV2.config.anonKey = SUPABASE_PUBLISHABLE_KEY;
   window.MarginaliaV2.setStatusListener((state, message) => {
@@ -2011,12 +2018,55 @@
   const entryContentEditable = document.getElementById('entryContentEditable');
   const entryDeleteBtn = document.getElementById('entryDeleteBtn');
   const entryAnalyzeBtn = document.getElementById('entryAnalyzeBtn');
+  const entryLineCount = document.getElementById('entryLineCount');
   const entryAiReviewPanel = document.getElementById('entryAiReviewPanel');
   const entryAiReviewStatus = document.getElementById('entryAiReviewStatus');
   const entryAiReviewList = document.getElementById('entryAiReviewList');
   let entryIndex = null;
   let entryCat = null;
   let entryAiSuggestions = [];
+  let pendingSourceHighlight = null;
+
+  function updateEntryLineCount() {
+    const text = entryContentEditable.innerText || '';
+    const lineCount = text ? text.split(/\r?\n/).length : 1;
+    entryLineCount.textContent = 'Lines: ' + lineCount;
+  }
+
+  function highlightSourceText(sourceText) {
+    if (!sourceText) return;
+    const walker = document.createTreeWalker(entryContentEditable, NodeFilter.SHOW_TEXT);
+    const nodes = [];
+    let fullText = '';
+    let node;
+    while ((node = walker.nextNode())) {
+      nodes.push({ node, start: fullText.length });
+      fullText += node.nodeValue;
+    }
+    const start = fullText.toLowerCase().indexOf(sourceText.toLowerCase());
+    if (start < 0) return;
+    const end = start + sourceText.length;
+    const boundary = (offset) => {
+      const match = nodes.find((item, index) => {
+        const nextStart = index + 1 < nodes.length ? nodes[index + 1].start : fullText.length;
+        return offset >= item.start && offset <= nextStart;
+      });
+      if (!match) return null;
+      return { node: match.node, offset: Math.min(offset - match.start, match.node.nodeValue.length) };
+    };
+    const rangeStart = boundary(start);
+    const rangeEnd = boundary(end);
+    if (!rangeStart || !rangeEnd) return;
+    const range = document.createRange();
+    range.setStart(rangeStart.node, rangeStart.offset);
+    range.setEnd(rangeEnd.node, rangeEnd.offset);
+    const selection = window.getSelection();
+    selection.removeAllRanges();
+    selection.addRange(range);
+    range.startContainer.parentElement.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    entryContentEditable.classList.add('source-focus');
+    setTimeout(() => entryContentEditable.classList.remove('source-focus'), 4500);
+  }
 
   function openEntryModal(cat, idx) {
     if (cat === 'characters') { openCharacterModal(idx); return; }
@@ -2036,6 +2086,7 @@
       entryContentEditable.innerHTML = entry.details || '';
       entryDeleteBtn.style.visibility = 'visible';
     }
+    updateEntryLineCount();
     writerFilter = 'all';
     document.querySelectorAll('#writerFilterChips .chip').forEach(c => c.classList.toggle('active', c.getAttribute('data-filter') === 'all'));
     closeWriterDrawer();
@@ -2045,6 +2096,11 @@
     entryAiReviewStatus.textContent = '';
     entryAiReviewPanel.classList.remove('show');
     entryOverlay.classList.add('show');
+    if (pendingSourceHighlight) {
+      const sourceText = pendingSourceHighlight.sourceText;
+      pendingSourceHighlight = null;
+      setTimeout(() => highlightSourceText(sourceText), 100);
+    }
     setTimeout(() => entryNameInput.focus(), 50);
     startAutosaveTimer();
   }
@@ -2096,6 +2152,14 @@
     entity[suggestion.field] = suggestion.operation === 'append' && current
       ? current + '\n' + suggestion.value
       : suggestion.value;
+    entity.provenance = Array.isArray(entity.provenance) ? entity.provenance : [];
+    entity.provenance.push({
+      field: suggestion.field,
+      sourceDocumentKey: suggestion.sourceDocumentKey,
+      sourceLabel: suggestion.sourceLabel,
+      sourceLine: suggestion.sourceLine,
+      sourceText: suggestion.sourceText || suggestion.evidence,
+    });
     suggestion.status = 'approved';
     p.updated = Date.now();
     saveProjects();
@@ -2114,7 +2178,13 @@
     entryAiReviewStatus.textContent = 'Reading this passage...';
     entryAiReviewList.innerHTML = '';
     try {
-      const result = await window.MarginaliaV2.analyzeProjectEntry(p, { details: entryContentEditable.innerHTML });
+      performEntrySave(false);
+      const currentEntry = p[entryCat][entryIndex];
+      const result = await window.MarginaliaV2.analyzeProjectEntry(p, {
+        ...currentEntry,
+        category: entryCat,
+        sourceLabel: `${catConfig[entryCat].title.slice(0, -1)} ${currentEntry.name}`,
+      });
       entryAiSuggestions = result.suggestions || [];
       renderEntryAiReview();
     } catch (error) {
@@ -2297,6 +2367,7 @@
     });
   }
   entryContentEditable.addEventListener('input', markUnsaved);
+  entryContentEditable.addEventListener('input', updateEntryLineCount);
   entryContentEditable.addEventListener('keyup', updateToolbarState);
   entryContentEditable.addEventListener('mouseup', updateToolbarState);
 
@@ -2325,6 +2396,38 @@
   let charIndex = null;
   let charImages = [];
   watchFields(charFields);
+
+  function renderCharacterProvenance(entry) {
+    Object.keys(charFields).forEach(key => {
+      const label = document.querySelector(`label[for="char${key.charAt(0).toUpperCase() + key.slice(1)}"]`);
+      if (label) label.querySelectorAll('.source-provenance').forEach(el => el.remove());
+    });
+    if (!entry || !Array.isArray(entry.provenance)) return;
+    entry.provenance.forEach(source => {
+      const key = source.field;
+      const label = document.querySelector(`label[for="char${key.charAt(0).toUpperCase() + key.slice(1)}"]`);
+      if (!label || !source.sourceDocumentKey) return;
+      const parts = source.sourceDocumentKey.split(':');
+      const cat = parts[1];
+      const entryId = parts.slice(2).join(':');
+      const p = projects.find(x => x.id === activeProjectId);
+      const sourceIndex = p && p[cat] ? p[cat].findIndex(item => item._id === entryId) : -1;
+      if (sourceIndex < 0) return;
+      const wrap = document.createElement('span');
+      wrap.className = 'source-provenance';
+      const link = document.createElement('a');
+      link.href = '#';
+      link.textContent = `(${source.sourceLabel || 'Source'} - Line ${source.sourceLine || 1})`;
+      link.addEventListener('click', (event) => {
+        event.preventDefault();
+        characterOverlay.classList.remove('show');
+        pendingSourceHighlight = { sourceText: source.sourceText };
+        openEntryModal(cat, sourceIndex);
+      });
+      wrap.appendChild(link);
+      label.appendChild(wrap);
+    });
+  }
 
   const imgLightbox = document.getElementById('imgLightbox');
   const imgLightboxImg = document.getElementById('imgLightboxImg');
@@ -2407,6 +2510,7 @@
       charImages = (entry.images || []).slice();
       document.getElementById('charDeleteBtn').style.visibility = 'visible';
     }
+    renderCharacterProvenance(idx === null ? null : projects.find(x => x.id === activeProjectId).characters[idx]);
     renderCharImageGrid();
     characterOverlay.classList.add('show');
     startAutosaveTimer();
@@ -2418,7 +2522,8 @@
   document.getElementById('charSaveBtn').addEventListener('click', () => {
     const p = projects.find(x => x.id === activeProjectId); if (!p) return;
     const name = charFields.name.value.trim() || 'Untitled character';
-    const data = { name, images: charImages.slice() };
+    const existing = charIndex === null ? null : p.characters[charIndex];
+    const data = { name, images: charImages.slice(), provenance: existing && Array.isArray(existing.provenance) ? existing.provenance.slice() : [] };
     Object.keys(charFields).forEach(key => { if (key !== 'name') data[key] = charFields[key].value.trim(); });
     let savedId;
     if (charIndex === null) {
@@ -2426,7 +2531,6 @@
       data._id = savedId;
       p.characters.push(data);
     } else {
-      const existing = p.characters[charIndex];
       savedId = existing._id || ('e_' + Date.now());
       data._id = savedId;
       p.characters[charIndex] = data;

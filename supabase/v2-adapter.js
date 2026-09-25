@@ -67,9 +67,18 @@
     };
   }
 
+  function htmlToPlainText(html) {
+    return (html || '')
+      .replace(/<\/?(?:p|div|h[1-6]|li|br)[^>]*>/gi, '\n')
+      .replace(/<[^>]*>/g, '')
+      .replace(/[ \t]+/g, ' ')
+      .replace(/\n\s+/g, '\n')
+      .trim();
+  }
+
   function documentPayload(project, bookId, kind, entry) {
     const contentHtml = entry.details || '';
-    const contentText = contentHtml.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+    const contentText = htmlToPlainText(contentHtml);
     return {
       client_key: `${project.id}:${kind}:${entry._id}`,
       book_id: bookId,
@@ -132,6 +141,11 @@
 
   async function analyzeScene(payload) {
     if (!isConfigured()) throw new Error('Marginalia V2 backend is not configured.');
+    if (window.marginaliaSupabaseClient) {
+      const { data, error } = await window.marginaliaSupabaseClient.functions.invoke('analyze-scene', { body: payload });
+      if (error) throw new Error(error.message || 'The analyze-scene function failed.');
+      return data;
+    }
     const response = await fetch(`${config.supabaseUrl}/functions/v1/analyze-scene`, {
       method: 'POST',
       headers: headers(),
@@ -143,6 +157,7 @@
 
   async function analyzeProjectEntry(project, entry) {
     if (!isConfigured()) throw new Error('Marginalia V2 backend is not configured.');
+    await syncProject(project);
     const books = await request(`books?client_key=eq.${encodeURIComponent(project.id)}&select=id`);
     const bookId = books && books[0] && books[0].id;
     if (!bookId) throw new Error('This book has not synced to Supabase yet.');
@@ -150,12 +165,14 @@
     const entityById = new Map(entities.map(entity => [entity.id, entity]));
     const result = await analyzeScene({
       bookId,
-      text: (entry.details || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim(),
+      text: htmlToPlainText(entry.details),
       entities: entities.map(entity => ({ id: entity.id, kind: entity.kind, name: entity.name })),
     });
     result.suggestions = (result.suggestions || []).map(suggestion => ({
       ...suggestion,
       localEntityKey: entityById.get(suggestion.entityId)?.client_key || null,
+      sourceDocumentKey: entry.category && entry._id ? `${project.id}:${entry.category}:${entry._id}` : null,
+      sourceLabel: entry.sourceLabel || entry.name || 'Untitled entry',
     }));
     return result;
   }
