@@ -1,5 +1,21 @@
 const assert = require('node:assert/strict');
-const { buildSuggestionAuditPayload, dedupeSuggestions, summarizeSuggestionStatuses } = require('./v2-adapter.js');
+const { documentPayload, buildSuggestionAuditPayload, dedupeSuggestions, summarizeSuggestionStatuses } = require('./v2-adapter.js');
+
+const document = documentPayload({ id: 'project-123' }, 'book-123', 'chapters', {
+  _id: 'chapter-456',
+  name: 'First Chapter',
+  details: '<p>Once upon a time.</p>',
+  wordGoal: 1800,
+});
+assert.equal(document.client_key, 'project-123:chapters:chapter-456');
+assert.equal(document.word_goal, 1800);
+
+const documentWithoutGoal = documentPayload({ id: 'project-123' }, 'book-123', 'chapters', {
+  _id: 'chapter-789',
+  name: 'Second Chapter',
+  details: '',
+});
+assert.equal(documentWithoutGoal.word_goal, null);
 
 const payload = buildSuggestionAuditPayload({
   bookId: 'book-123',

@@ -20,6 +20,7 @@ create table public.documents (
   title text not null default '',
   content_html text not null default '',
   content_text text not null default '',
+  word_goal integer check (word_goal is null or word_goal >= 0),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );

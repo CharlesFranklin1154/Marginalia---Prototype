@@ -86,6 +86,7 @@
       title: entry.name || 'Untitled',
       content_html: contentHtml,
       content_text: contentText,
+      word_goal: entry.wordGoal == null ? null : Number(entry.wordGoal),
       updated_at: new Date().toISOString(),
     };
   }
@@ -282,6 +283,7 @@
     syncProject,
     analyzeScene,
     analyzeProjectEntry,
+    documentPayload,
     buildSuggestionAuditPayload,
     dedupeSuggestions,
     summarizeSuggestionStatuses,
@@ -290,6 +292,6 @@
   };
 
   if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { buildSuggestionAuditPayload, dedupeSuggestions, summarizeSuggestionStatuses, deleteProjectEntity, deleteProjectBook };
+    module.exports = { documentPayload, buildSuggestionAuditPayload, dedupeSuggestions, summarizeSuggestionStatuses, deleteProjectEntity, deleteProjectBook };
   }
 })();

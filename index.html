@@ -350,6 +350,7 @@
   /* ---------- Generic modal ---------- */
   .overlay { position: fixed; inset: 0; background: rgba(30, 34, 31, 0.38); display: none; align-items: center; justify-content: center; z-index: 30; }
   .overlay.show { display: flex; }
+  .overlay.editor-page { align-items: stretch; justify-content: stretch; background: var(--bg); z-index: 40; }
   .modal { background: var(--paper); border-radius: 10px; padding: 32px; width: 460px; max-width: 90vw; max-height: 84vh; overflow-y: auto; box-shadow: 0 24px 60px rgba(20, 24, 20, 0.28); }
   .modal.small { width: 380px; }
   .modal.wide { width: 640px; }
@@ -357,8 +358,27 @@
     width: 1100px; max-width: 94vw; height: 86vh; display: flex; flex-direction: column;
     position: relative; overflow: hidden;
   }
+  .modal.writer.editor-page-content {
+    width: 100%; max-width: none; height: 100dvh; max-height: none; padding: 24px clamp(18px, 4vw, 56px) 0;
+    border-radius: 0; box-shadow: none;
+  }
+  .modal.template-page {
+    width: 100%; max-width: none; height: 100dvh; max-height: none; padding: 30px clamp(18px, 5vw, 72px) 0;
+    border-radius: 0; box-shadow: none; overflow-y: auto; overscroll-behavior: contain;
+  }
+  .modal.template-page > :not(.modal-actions) { width: 100%; max-width: 980px; margin-left: auto; margin-right: auto; }
+  .modal.template-page .modal-actions {
+    position: sticky; bottom: 0; z-index: 2; width: calc(100% + clamp(36px, 10vw, 144px)); max-width: none;
+    margin: 18px calc(clamp(18px, 5vw, 72px) * -1) 0; padding: 14px clamp(18px, 5vw, 72px);
+    background: var(--paper); border-top: 1px solid var(--line);
+  }
   .writer-body { display: flex; gap: 22px; flex: 1; min-height: 0; }
   .writer-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  .entry-editor-wrap { display: flex; flex: 1; min-height: 0; }
+  .entry-line-numbers {
+    flex: 0 0 48px; overflow: hidden; margin: 0; padding: 18px 10px 18px 0; border: 1px solid var(--line); border-right: 0;
+    background: var(--bg); color: var(--ink-faint); text-align: right; user-select: none; font: 0.82rem/1.75 var(--font-sans);
+  }
 
   .writer-sidebar {
     width: 250px; flex-shrink: 0; border-left: 1px solid var(--line); padding-left: 18px;
@@ -392,6 +412,11 @@
   @media (max-width: 860px) {
     .modal.writer { width: 94vw; height: 88vh; }
     .writer-body { flex-direction: column; }
+    .modal.writer.editor-page-content .writer-body { position: relative; overflow: hidden; }
+    .modal.writer.editor-page-content > .modal-actions { flex-wrap: wrap; }
+    .modal.writer.editor-page-content .writer-stats { order: 0; flex: 1 1 auto; }
+    .modal.writer.editor-page-content .entry-line-count { order: 1; margin-right: 0; }
+    .modal.writer.editor-page-content .modal-actions-right { order: 2; width: 100%; justify-content: flex-end; flex-wrap: wrap; gap: 6px; }
     .writer-sidebar {
       position: absolute; left: 0; right: 0; bottom: 0; width: auto; border-left: none;
       padding: 0 20px 20px; background: var(--paper); border-radius: 16px 16px 0 0;
@@ -443,6 +468,10 @@
   .rich-editor h3 { font-family: var(--font-serif); font-size: 1.08rem; margin: 0.6em 0 0.35em; color: var(--ink); }
   .rich-editor p { margin: 0 0 0.9em; }
   .rich-editor ul, .rich-editor ol { padding-left: 1.4em; margin: 0 0 0.9em; }
+  .writer-stats { display: flex; align-items: center; gap: 18px; margin-right: auto; color: var(--ink-faint); font-size: 0.76rem; }
+  .writer-stats label { display: inline-flex; align-items: center; gap: 7px; }
+  .writer-stats input { width: 92px; padding: 5px 7px; border: 1px solid var(--line); border-radius: 5px; background: var(--bg); color: var(--ink); font: inherit; }
+  .writer-stats input:focus { outline: 2px solid var(--slate); outline-offset: 1px; }
   .field-row { display: flex; gap: 14px; }
   .field-row .field { flex: 1; }
   .field-group { margin-bottom: 18px; }
@@ -818,8 +847,8 @@
   <input type="file" accept="image/*" class="hidden-file" id="coverFileInput">
 
   <!-- Writer modal (Chapters / Scenes) -->
-  <div class="overlay" id="entryOverlay">
-    <div class="modal writer">
+  <div class="overlay editor-page" id="entryOverlay">
+    <div class="modal writer editor-page-content">
       <div class="writer-body">
         <div class="writer-main">
           <div class="field">
@@ -865,7 +894,10 @@
             <button type="button" data-cmd="redo" title="Redo">&#8631;</button>
             <button type="button" data-cmd="removeFormat" title="Clear formatting">Clear</button>
           </div>
-          <div id="entryContentEditable" class="rich-editor" contenteditable="true"></div>
+          <div class="entry-editor-wrap">
+            <pre id="entryLineNumbers" class="entry-line-numbers" aria-hidden="true">1</pre>
+            <div id="entryContentEditable" class="rich-editor" contenteditable="true"></div>
+          </div>
         </div>
 
         <aside class="writer-sidebar" id="writerSidebar">
@@ -896,8 +928,12 @@
       <div class="modal-actions">
         <button class="btn ghost" id="entryDeleteBtn" type="button" style="color:var(--rust-deep);">Delete</button>
         <div class="modal-actions-right">
-          <span class="entry-line-count" id="entryLineCount">Line 1</span>
-          <button class="btn ghost" id="entryCancelBtn" type="button">Cancel</button>
+          <div class="writer-stats">
+            <span id="entryWordCount">0 words</span>
+            <label for="entryWordGoal">Goal <input id="entryWordGoal" type="number" min="0" step="50" inputmode="numeric" placeholder="Optional" aria-label="Word count goal"></label>
+          </div>
+          <span class="entry-line-count" id="entryLineCount">Lines: 1</span>
+          <button class="btn ghost" id="entryCancelBtn" type="button">Back</button>
           <button class="btn ghost" id="entryAnalyzeBtn" type="button">Check memory</button>
           <button class="btn primary" id="entrySaveBtn" type="button">Save</button>
         </div>
@@ -906,8 +942,8 @@
   </div>
 
   <!-- Character template modal -->
-  <div class="overlay" id="characterOverlay">
-    <div class="modal wide">
+  <div class="overlay editor-page" id="characterOverlay">
+    <div class="modal wide template-page">
       <h2 id="charModalTitle">New character</h2>
 
       <div class="field">
@@ -996,7 +1032,7 @@
       <div class="modal-actions">
         <button class="btn ghost" id="charDeleteBtn" type="button" style="color:var(--rust-deep);">Delete</button>
         <div class="modal-actions-right">
-          <button class="btn ghost" id="charCancelBtn" type="button">Cancel</button>
+          <button class="btn ghost" id="charCancelBtn" type="button">Back</button>
           <button class="btn primary" id="charSaveBtn" type="button">Save</button>
         </div>
       </div>
@@ -1005,8 +1041,8 @@
   <input type="file" accept="image/*" multiple class="hidden-file" id="charImageFileInput">
 
   <!-- Location template modal -->
-  <div class="overlay" id="locationOverlay">
-    <div class="modal wide">
+  <div class="overlay editor-page" id="locationOverlay">
+    <div class="modal wide template-page">
       <h2 id="locModalTitle">New location</h2>
 
       <div class="field">
@@ -1074,7 +1110,7 @@
       <div class="modal-actions">
         <button class="btn ghost" id="locDeleteBtn" type="button" style="color:var(--rust-deep);">Delete</button>
         <div class="modal-actions-right">
-          <button class="btn ghost" id="locCancelBtn" type="button">Cancel</button>
+          <button class="btn ghost" id="locCancelBtn" type="button">Back</button>
           <button class="btn primary" id="locSaveBtn" type="button">Save</button>
         </div>
       </div>
@@ -1083,8 +1119,8 @@
   <input type="file" accept="image/*" multiple class="hidden-file" id="locImageFileInput">
 
   <!-- Item template modal -->
-  <div class="overlay" id="itemOverlay">
-    <div class="modal wide">
+  <div class="overlay editor-page" id="itemOverlay">
+    <div class="modal wide template-page">
       <h2 id="itemModalTitle">New item</h2>
 
       <div class="field">
@@ -1146,7 +1182,7 @@
       <div class="modal-actions">
         <button class="btn ghost" id="itemDeleteBtn" type="button" style="color:var(--rust-deep);">Delete</button>
         <div class="modal-actions-right">
-          <button class="btn ghost" id="itemCancelBtn" type="button">Cancel</button>
+          <button class="btn ghost" id="itemCancelBtn" type="button">Back</button>
           <button class="btn primary" id="itemSaveBtn" type="button">Save</button>
         </div>
       </div>
@@ -2027,6 +2063,9 @@
   const entryDeleteBtn = document.getElementById('entryDeleteBtn');
   const entryAnalyzeBtn = document.getElementById('entryAnalyzeBtn');
   const entryLineCount = document.getElementById('entryLineCount');
+  const entryLineNumbers = document.getElementById('entryLineNumbers');
+  const entryWordCount = document.getElementById('entryWordCount');
+  const entryWordGoal = document.getElementById('entryWordGoal');
   const entryAiReviewPanel = document.getElementById('entryAiReviewPanel');
   const entryAiReviewStatus = document.getElementById('entryAiReviewStatus');
   const entryAiReviewList = document.getElementById('entryAiReviewList');
@@ -2039,6 +2078,10 @@
     const text = entryContentEditable.innerText || '';
     const lineCount = text ? text.split(/\r?\n/).length : 1;
     entryLineCount.textContent = 'Lines: ' + lineCount;
+    entryLineNumbers.textContent = Array.from({ length: lineCount }, (_, index) => index + 1).join('\n');
+    const wordCount = text.trim() ? text.trim().split(/\s+/).length : 0;
+    const goal = Number(entryWordGoal.value) || 0;
+    entryWordCount.textContent = goal ? `${wordCount} / ${goal} words` : `${wordCount} words`;
   }
 
   function highlightSourceText(sourceText) {
@@ -2086,12 +2129,14 @@
     entryContentEditable.setAttribute('data-placeholder', 'Start writing...');
     if (idx === null) {
       entryNameInput.value = ''; entryContentEditable.innerHTML = '';
+      entryWordGoal.value = '';
       entryDeleteBtn.style.visibility = 'hidden';
     } else {
       const p = projects.find(x => x.id === activeProjectId);
       const entry = p[cat][idx];
       entryNameInput.value = entry.name || '';
       entryContentEditable.innerHTML = entry.details || '';
+      entryWordGoal.value = entry.wordGoal || '';
       entryDeleteBtn.style.visibility = 'visible';
     }
     updateEntryLineCount();
@@ -2103,6 +2148,7 @@
     entryAiReviewList.innerHTML = '';
     entryAiReviewStatus.textContent = '';
     entryAiReviewPanel.classList.remove('show');
+    captureEntryModalSnapshot();
     entryOverlay.classList.add('show');
     if (pendingSourceHighlight) {
       const sourceText = pendingSourceHighlight.sourceText;
@@ -2112,7 +2158,25 @@
     setTimeout(() => entryNameInput.focus(), 50);
     startAutosaveTimer();
   }
+  let entryModalSnapshot = null;
+
+  function captureEntryModalSnapshot() {
+    entryModalSnapshot = {
+      name: entryNameInput.value || '',
+      details: entryContentEditable.innerHTML || '',
+      wordGoal: entryWordGoal.value || '',
+    };
+  }
+
+  function entryHasUnsavedChanges() {
+    if (!entryModalSnapshot) return false;
+    return entryNameInput.value !== entryModalSnapshot.name || entryContentEditable.innerHTML !== entryModalSnapshot.details || entryWordGoal.value !== entryModalSnapshot.wordGoal;
+  }
+
   function closeWriterModal() {
+    if (entryOverlay.classList.contains('show') && entryHasUnsavedChanges()) {
+      performEntrySave(false);
+    }
     entryOverlay.classList.remove('show');
     stopAutosaveTimer();
     markSaved();
@@ -2120,6 +2184,22 @@
   document.getElementById('entryCancelBtn').addEventListener('click', closeWriterModal);
   entryOverlay.addEventListener('click', (e) => { if (e.target === entryOverlay) closeWriterModal(); });
   entryNameInput.addEventListener('input', markUnsaved);
+  entryWordGoal.addEventListener('input', () => { markUnsaved(); updateEntryLineCount(); });
+  entryContentEditable.addEventListener('scroll', () => { entryLineNumbers.scrollTop = entryContentEditable.scrollTop; });
+
+  function captureOverlaySnapshot(fields, images) {
+    return {
+      values: Object.fromEntries(Object.keys(fields).map(key => [key, String(fields[key].value || '')])),
+      images: Array.isArray(images) ? images.slice() : [],
+    };
+  }
+
+  function overlayHasUnsavedChanges(snapshot, fields, images) {
+    if (!snapshot) return false;
+    const currentValues = Object.fromEntries(Object.keys(fields).map(key => [key, String(fields[key].value || '')]));
+    const currentImages = Array.isArray(images) ? images.slice() : [];
+    return JSON.stringify(snapshot.values) !== JSON.stringify(currentValues) || JSON.stringify(snapshot.images) !== JSON.stringify(currentImages);
+  }
 
   function renderEntryAiReviewHistory() {
     const historyEl = document.getElementById('entryAiReviewHistory');
@@ -2293,13 +2373,13 @@
     let savedId;
     if (entryIndex === null) {
       savedId = 'e_' + Date.now() + Math.random().toString(36).slice(2,6);
-      p[entryCat].push({ _id: savedId, name, details });
+      p[entryCat].push({ _id: savedId, name, details, wordGoal: Number(entryWordGoal.value) || null });
       entryIndex = p[entryCat].length - 1; // subsequent autosaves edit this same entry
       entryDeleteBtn.style.visibility = 'visible';
     } else {
       const existing = p[entryCat][entryIndex];
       savedId = existing._id || ('e_' + Date.now());
-      p[entryCat][entryIndex] = { _id: savedId, name, details };
+      p[entryCat][entryIndex] = { _id: savedId, name, details, wordGoal: Number(entryWordGoal.value) || null };
     }
     p.updated = Date.now(); saveProjects();
     renderCategoryCounts(p);
@@ -2483,6 +2563,7 @@
   };
   let charIndex = null;
   let charImages = [];
+  let characterModalSnapshot = null;
   watchFields(charFields);
 
   function renderCharacterProvenance(entry) {
@@ -2598,14 +2679,23 @@
       charImages = (entry.images || []).slice();
       document.getElementById('charDeleteBtn').style.visibility = 'visible';
     }
+    characterModalSnapshot = captureOverlaySnapshot(charFields, charImages);
     renderCharacterProvenance(idx === null ? null : projects.find(x => x.id === activeProjectId).characters[idx]);
     renderCharImageGrid();
     characterOverlay.classList.add('show');
     startAutosaveTimer();
     setTimeout(() => charFields.name.focus(), 50);
   }
-  document.getElementById('charCancelBtn').addEventListener('click', () => { stopAutosaveTimer(); characterOverlay.classList.remove('show'); markSaved(); });
-  characterOverlay.addEventListener('click', (e) => { if (e.target === characterOverlay) { stopAutosaveTimer(); characterOverlay.classList.remove('show'); markSaved(); } });
+  function closeCharacterModal() {
+    if (characterOverlay.classList.contains('show') && overlayHasUnsavedChanges(characterModalSnapshot, charFields, charImages)) {
+      document.getElementById('charSaveBtn').click();
+    }
+    stopAutosaveTimer();
+    characterOverlay.classList.remove('show');
+    markSaved();
+  }
+  document.getElementById('charCancelBtn').addEventListener('click', closeCharacterModal);
+  characterOverlay.addEventListener('click', (e) => { if (e.target === characterOverlay) closeCharacterModal(); });
 
   document.getElementById('charSaveBtn').addEventListener('click', () => {
     const p = projects.find(x => x.id === activeProjectId); if (!p) return;
@@ -2664,6 +2754,7 @@
   };
   let locIndex = null;
   let locImages = [];
+  let locationModalSnapshot = null;
   watchFields(locFields);
 
   function renderLocImageGrid() {
@@ -2709,13 +2800,22 @@
       locImages = (entry.images || []).slice();
       document.getElementById('locDeleteBtn').style.visibility = 'visible';
     }
+    locationModalSnapshot = captureOverlaySnapshot(locFields, locImages);
     renderLocImageGrid();
     locationOverlay.classList.add('show');
     startAutosaveTimer();
     setTimeout(() => locFields.name.focus(), 50);
   }
-  document.getElementById('locCancelBtn').addEventListener('click', () => { stopAutosaveTimer(); locationOverlay.classList.remove('show'); markSaved(); });
-  locationOverlay.addEventListener('click', (e) => { if (e.target === locationOverlay) { stopAutosaveTimer(); locationOverlay.classList.remove('show'); markSaved(); } });
+  function closeLocationModal() {
+    if (locationOverlay.classList.contains('show') && overlayHasUnsavedChanges(locationModalSnapshot, locFields, locImages)) {
+      document.getElementById('locSaveBtn').click();
+    }
+    stopAutosaveTimer();
+    locationOverlay.classList.remove('show');
+    markSaved();
+  }
+  document.getElementById('locCancelBtn').addEventListener('click', closeLocationModal);
+  locationOverlay.addEventListener('click', (e) => { if (e.target === locationOverlay) closeLocationModal(); });
 
   document.getElementById('locSaveBtn').addEventListener('click', () => {
     const p = projects.find(x => x.id === activeProjectId); if (!p) return;
@@ -2772,6 +2872,7 @@
   };
   let itemIndex = null;
   let itemImages = [];
+  let itemModalSnapshot = null;
   watchFields(itemFields);
 
   function renderItemImageGrid() {
@@ -2817,13 +2918,22 @@
       itemImages = (entry.images || []).slice();
       document.getElementById('itemDeleteBtn').style.visibility = 'visible';
     }
+    itemModalSnapshot = captureOverlaySnapshot(itemFields, itemImages);
     renderItemImageGrid();
     itemOverlay.classList.add('show');
     startAutosaveTimer();
     setTimeout(() => itemFields.name.focus(), 50);
   }
-  document.getElementById('itemCancelBtn').addEventListener('click', () => { stopAutosaveTimer(); itemOverlay.classList.remove('show'); markSaved(); });
-  itemOverlay.addEventListener('click', (e) => { if (e.target === itemOverlay) { stopAutosaveTimer(); itemOverlay.classList.remove('show'); markSaved(); } });
+  function closeItemModal() {
+    if (itemOverlay.classList.contains('show') && overlayHasUnsavedChanges(itemModalSnapshot, itemFields, itemImages)) {
+      document.getElementById('itemSaveBtn').click();
+    }
+    stopAutosaveTimer();
+    itemOverlay.classList.remove('show');
+    markSaved();
+  }
+  document.getElementById('itemCancelBtn').addEventListener('click', closeItemModal);
+  itemOverlay.addEventListener('click', (e) => { if (e.target === itemOverlay) closeItemModal(); });
 
   document.getElementById('itemSaveBtn').addEventListener('click', () => {
     const p = projects.find(x => x.id === activeProjectId); if (!p) return;
@@ -2902,6 +3012,18 @@
 
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
+    if (entryOverlay.classList.contains('show') && entryHasUnsavedChanges()) {
+      performEntrySave(false);
+    }
+    if (characterOverlay.classList.contains('show') && overlayHasUnsavedChanges(characterModalSnapshot, charFields, charImages)) {
+      document.getElementById('charSaveBtn').click();
+    }
+    if (locationOverlay.classList.contains('show') && overlayHasUnsavedChanges(locationModalSnapshot, locFields, locImages)) {
+      document.getElementById('locSaveBtn').click();
+    }
+    if (itemOverlay.classList.contains('show') && overlayHasUnsavedChanges(itemModalSnapshot, itemFields, itemImages)) {
+      document.getElementById('itemSaveBtn').click();
+    }
     stopAutosaveTimer();
     [newBookOverlay, entryOverlay, characterOverlay, locationOverlay, itemOverlay, deleteStep1Overlay, deleteStep2Overlay, aiSettingsOverlay].forEach(o => o.classList.remove('show'));
     markSaved();
