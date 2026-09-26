@@ -470,8 +470,20 @@
   .rich-editor ul, .rich-editor ol { padding-left: 1.4em; margin: 0 0 0.9em; }
   .writer-stats { display: flex; align-items: center; gap: 18px; margin-right: auto; color: var(--ink-faint); font-size: 0.76rem; }
   .writer-stats label { display: inline-flex; align-items: center; gap: 7px; }
-  .writer-stats input { width: 92px; padding: 5px 7px; border: 1px solid var(--line); border-radius: 5px; background: var(--bg); color: var(--ink); font: inherit; }
+  .writer-stats input { width: 92px; padding: 5px 7px; border: 1px solid var(--line); border-radius: 5px; background: var(--bg); color: var(--ink); font: inherit; appearance: textfield; -moz-appearance: textfield; }
+  .writer-stats input::-webkit-inner-spin-button, .writer-stats input::-webkit-outer-spin-button { appearance: none; -webkit-appearance: none; margin: 0; }
   .writer-stats input:focus { outline: 2px solid var(--slate); outline-offset: 1px; }
+  #entryWordCount { position: relative; border-radius: 4px; outline: none; }
+  #entryWordCount.goal-met { color: var(--moss); animation: wordGoalPulse 2.2s ease-in-out infinite; }
+  #entryWordCount.goal-met::after {
+    content: attr(data-tooltip); position: absolute; left: 0; bottom: calc(100% + 10px); z-index: 5; width: max-content; max-width: 220px;
+    padding: 8px 10px; border: 1px solid var(--moss); border-radius: 6px; background: var(--ink); color: var(--paper);
+    font-size: 0.74rem; line-height: 1.35; box-shadow: 0 5px 16px var(--shadow); opacity: 0; visibility: hidden; transform: translateY(3px);
+    transition: opacity 0.15s ease, transform 0.15s ease, visibility 0.15s ease; pointer-events: none;
+  }
+  #entryWordCount.goal-met:hover::after, #entryWordCount.goal-met:focus-visible::after { opacity: 1; visibility: visible; transform: translateY(0); }
+  @keyframes wordGoalPulse { 0%, 100% { text-shadow: 0 0 2px rgba(91, 146, 95, 0.2); } 50% { text-shadow: 0 0 9px rgba(91, 146, 95, 0.65); } }
+  @media (prefers-reduced-motion: reduce) { #entryWordCount.goal-met { animation: none; } }
   .field-row { display: flex; gap: 14px; }
   .field-row .field { flex: 1; }
   .field-group { margin-bottom: 18px; }
@@ -929,7 +941,7 @@
         <button class="btn ghost" id="entryDeleteBtn" type="button" style="color:var(--rust-deep);">Delete</button>
         <div class="modal-actions-right">
           <div class="writer-stats">
-            <span id="entryWordCount">0 words</span>
+            <span id="entryWordCount" tabindex="0" aria-live="polite">0 words</span>
             <label for="entryWordGoal">Goal <input id="entryWordGoal" type="number" min="0" step="50" inputmode="numeric" placeholder="Optional" aria-label="Word count goal"></label>
           </div>
           <span class="entry-line-count" id="entryLineCount">Lines: 1</span>
@@ -2074,14 +2086,33 @@
   let entryAiSuggestions = [];
   let pendingSourceHighlight = null;
 
+  function getEntryPlainText() {
+    let text = '';
+    const blockTags = new Set(['DIV', 'P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'LI', 'BLOCKQUOTE']);
+    function appendNode(node) {
+      if (node.nodeType === Node.TEXT_NODE) { text += node.nodeValue; return; }
+      if (node.nodeName === 'BR') { text += '\n'; return; }
+      const isBlock = blockTags.has(node.nodeName);
+      if (isBlock && text && !text.endsWith('\n')) text += '\n';
+      Array.from(node.childNodes).forEach(appendNode);
+      if (isBlock && text && !text.endsWith('\n')) text += '\n';
+    }
+    Array.from(entryContentEditable.childNodes).forEach(appendNode);
+    return text.endsWith('\n') ? text.slice(0, -1) : text;
+  }
+
   function updateEntryLineCount() {
-    const text = entryContentEditable.innerText || '';
+    const text = getEntryPlainText();
     const lineCount = text ? text.split(/\r?\n/).length : 1;
     entryLineCount.textContent = 'Lines: ' + lineCount;
     entryLineNumbers.textContent = Array.from({ length: lineCount }, (_, index) => index + 1).join('\n');
     const wordCount = text.trim() ? text.trim().split(/\s+/).length : 0;
     const goal = Number(entryWordGoal.value) || 0;
     entryWordCount.textContent = goal ? `${wordCount} / ${goal} words` : `${wordCount} words`;
+    const goalMet = goal > 0 && wordCount >= goal;
+    entryWordCount.classList.toggle('goal-met', goalMet);
+    if (goalMet) entryWordCount.dataset.tooltip = "You've hit your goal. Great job!";
+    else delete entryWordCount.dataset.tooltip;
   }
 
   function highlightSourceText(sourceText) {
