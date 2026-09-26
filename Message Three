@@ -1,6 +1,6 @@
 # Marginalia Project Handoff
 
-Last updated: 2026-09-24
+Last updated: 2026-09-25
 
 ## Resume Instruction
 
@@ -16,8 +16,8 @@ Marginalia is a calm, literary writing workbench that lets the writer do the wri
 - Main app: `index.html`
 - V1 storage: localStorage, retained as the local/offline source of truth for now
 - Git branch: `main`
-- Last confirmed commit: `Version 3 Updates`
-- Last confirmed repository state: clean and synchronized with `origin/main`
+- Last confirmed commit: `Version 3 Updates` (before the latest editor refinements)
+- GitHub showed the Supabase migration and adapter files, but publishing the latest `index.html` editor changes has not been confirmed
 - GitHub publishing is separate from Supabase Edge Function deployment
 
 ## Current Frontend Features
@@ -39,6 +39,11 @@ Marginalia is a calm, literary writing workbench that lets the writer do the wri
 - Multiple titled Brain Dumps using the same hub/card/editor flow
 - Migration of an older single `brainDump` string into the first `brainDumps` entry
 - Rich-text editor with line count display
+- Full-viewport writing and entity-template workspaces in place of floating editor modals
+- Save-before-close protection for chapter, character, location, and item editors
+- Chapter/scene word count with a per-entry goal and goal-reached feedback
+- Named paragraph styles (Title, headings, Block Quote, Caption, Centered Text, Code Block, Verse) and character styles (Emphasis, Code Span)
+- Rendered-row gutter measurement that accounts for text wrapping and formatting; browser alignment smoke test still needed
 - Live entity matching sidebar
 - Image resizing to a maximum 800x800px
 - Character/location/item image lightbox
@@ -59,6 +64,8 @@ Completed Supabase work:
 
 - `supabase/schema.sql` creates books, documents, entities, AI suggestions, row-level security, and ownership checks
 - `supabase/migrations/002_client_keys.sql` was applied successfully
+- `supabase/migrations/003_document_word_goal.sql` was applied successfully on 2026-09-25, per user confirmation
+- `documents.word_goal` is included in local schema and V2 document sync; adapter tests cover both a set goal and no goal
 - The documents kind constraint allows `chapter`, `scene`, and `brain_dump`
 - The V2 adapter is enabled in `supabase/v2-adapter.js`
 - Authenticated books, entities, documents, and Brain Dumps are populating in Supabase
@@ -73,6 +80,7 @@ Completed Supabase work:
 - Syncs books and the legacy Brain Dump compatibility field
 - Syncs characters, locations, and items to `entities`
 - Syncs chapters, scenes, and Brain Dumps to `documents`
+- Syncs a chapter/scene `wordGoal` to the nullable `documents.word_goal` column
 - Shows sync state in the global save banner
 - Resolves Supabase book/entity IDs before analysis
 - Calls the Edge Function through the authenticated Supabase client
@@ -80,9 +88,9 @@ Completed Supabase work:
 
 ## Current Mock AI Behavior
 
-The Edge Function is not using a paid AI provider yet. It is deterministic mock logic, so it does not create model-token charges.
+The Edge Function is not using a paid AI provider yet. It is deterministic mock logic, so it does not create model-token charges. Copilot usage in VS Code is separate from Marginalia's Supabase and Edge Function costs.
 
-It currently recognizes a character mentioned in text containing `scar` or `scarring`. For example:
+The mock extractor recognizes a small set of explicit character, location, and item details, including scar evidence such as:
 
 ```text
 Mira touched the scar above her left eye.
@@ -107,24 +115,24 @@ The current source line is calculated from preserved rich-text line breaks. The 
 
 ## Known Limitations
 
-- The analyzer only recognizes scar evidence; it is not a real language model yet.
-- Suggestions are not yet inserted into the `ai_suggestions` audit table.
-- Repeated analysis can create repeated local suggestions until the writer rejects or approves them.
+- The analyzer uses deterministic heuristics, not a real language model, and its evidence coverage remains intentionally limited.
+- The review panel and history are functional but still need a UX polish pass.
 - The current provenance link is implemented for character-sheet updates first.
-- `V2_SETUP.md` still describes some review UI and adapter work as future work and should eventually be refreshed.
+- `V2_SETUP.md` and older handoff sections may still describe completed review and adapter work as future work; keep them aligned when next editing setup documentation.
 - Supabase Edge Function files show Deno/import diagnostics in the normal VS Code checker because the local editor is not configured with the Deno runtime. Supabase deployment is the authoritative check for that function.
 - The mock login/testing bypass should eventually be removed or clearly isolated before real public use.
 - The old `books.brain_dump` column remains for compatibility; new Brain Dumps are individual `documents` rows with `kind = 'brain_dump'`.
+- The latest editor styles and rendered-row gutter have passed syntax/regression checks but have not yet been confirmed in the deployed site or visually smoke-tested across wrapping, font sizes, and mobile widths.
 
 ## Immediate Next Steps
 
-1. Confirm the provenance link behavior with a multi-line chapter or scene. Put the evidence on line 7, approve the suggestion, reopen the character sheet, click the link, and verify the editor selects the correct sentence.
-2. Persist every returned suggestion into `ai_suggestions` with book, document, entity, evidence, source line, confidence, and status.
-3. Add deduplication so the same source sentence does not create repeated suggestions.
-4. Expand deterministic mock extraction for clothing, habits, relationships, locations, and items.
-5. Add an explicit review history UI showing pending, approved, and rejected suggestions.
-6. Only after the approval/audit workflow is solid, connect a real AI provider through the Edge Function.
-7. Add provider budget limits, request throttling, chunking, and model settings before enabling paid AI calls.
+1. Publish the latest `index.html` editor changes to GitHub Pages if they have not been pushed yet.
+2. Smoke-test the writer in a browser: wrapped paragraphs, headings, Title, Code Block, Verse, font-size changes, line-number alignment, goal feedback, and mobile layout.
+3. Set and save a word goal, then verify the matching `documents.word_goal` value in Supabase. The migration has been applied; the live write has not yet been confirmed.
+4. Continue the review-panel UX polish and test pending, approved, and rejected history states.
+5. Tighten deterministic analyzer heuristics where real writing exposes attribution or evidence edge cases; keep tests focused on confirmed examples.
+6. Before public use, remove or clearly isolate the testing bypass and review auth/data access.
+7. Treat a real AI provider as future work; establish budget limits, throttling, chunking, and settings before enabling paid model calls.
 
 ## Safe Working Process
 
@@ -144,14 +152,16 @@ Useful restart prompt:
 
 ## Work completed on 2026-09-25
 
-- Verified the provenance link flow was already in place and working in `index.html` before continuing.
-- Persisted returned suggestions into the Supabase `ai_suggestions` audit table through `supabase/v2-adapter.js` using each suggestion's book, document, entity, evidence, source line, confidence, and status.
-- Added the missing `source_line` column to `supabase/schema.sql` so persisted suggestions capture the exact sentence line number.
-- Added deduplication so repeated suggestions from the same source sentence are filtered before the review panel or audit insert.
-- Expanded the deterministic mock extraction to include clothing, habits, relationships, locations, and item-handling cues in `supabase/functions/analyze-scene/mock-helpers.mjs`.
-- Tested the payload contract and the analyzer expansion with focused regression checks: `node supabase/v2-adapter.test.js` and `node supabase/functions/analyze-scene/mock-helpers.test.mjs` both passed.
-- Deployment state: `supabase/functions/analyze-scene/index.ts` was changed, so the function still needs a Supabase redeploy before the live project uses the new extraction rules.
+- Persisted AI suggestions to `ai_suggestions`, added `source_line`, and deduplicated repeated evidence in the V2 adapter.
+- Expanded deterministic mock extraction and corrected entity attribution edge cases; analyzer and adapter regression suites pass.
+- Added remote delete cleanup for entities and books; the user verified deleted records disappear from Supabase.
+- Protected unsaved chapter, character, location, and item edits from accidental outside-click or Escape dismissal by saving before close.
+- Changed chapter/scene and entity editors into full-viewport workspaces; added word count, per-entry word goals, goal-reached feedback, and a rendered-row gutter.
+- Added paragraph and character style presets that persist in saved HTML and trigger gutter recalculation.
+- Added `word_goal` to `schema.sql` and the V2 document payload, with adapter regression coverage; the user confirmed migration `003_document_word_goal.sql` ran successfully in Supabase.
+- Validated with inline-script syntax checks, `node supabase/v2-adapter.test.js`, `node supabase/functions/analyze-scene/mock-helpers.test.mjs`, and `git diff --check`.
+- No Edge Function redeploy is needed for the latest frontend/editor changes. GitHub Pages deployment of the most recent editor refinements remains unconfirmed.
 
 ## Next unchecked task
 
-- Add an explicit review-history UI showing pending, approved, and rejected suggestions.
+- Publish and browser-test the latest editor/gutter/style changes; then confirm a saved word goal reaches Supabase `documents.word_goal`.
