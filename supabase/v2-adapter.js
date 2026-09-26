@@ -135,6 +135,35 @@
     return summary;
   }
 
+  async function deleteProjectEntity(project, kind, entryId) {
+    if (!isConfigured() || !project || !entryId) return;
+    const books = await request(`books?client_key=eq.${encodeURIComponent(project.id)}&select=id`);
+    const bookId = books && books[0] && books[0].id;
+    if (!bookId) return;
+    const entityKind = kind === 'characters' ? 'character' : kind === 'locations' ? 'location' : 'item';
+    const clientKey = `${project.id}:${kind}:${entryId}`;
+    try {
+      await request(`entities?book_id=eq.${encodeURIComponent(bookId)}&kind=eq.${encodeURIComponent(entityKind)}&client_key=eq.${encodeURIComponent(clientKey)}`, { method: 'DELETE' });
+    } catch (error) {
+      console.warn('Marginalia V2 entity delete deferred:', error);
+    }
+  }
+
+  async function deleteProjectBook(projectId) {
+    if (!isConfigured() || !projectId) return;
+    const books = await request(`books?client_key=eq.${encodeURIComponent(projectId)}&select=id`);
+    const bookId = books && books[0] && books[0].id;
+    if (!bookId) return;
+    try {
+      await request(`ai_suggestions?book_id=eq.${encodeURIComponent(bookId)}`, { method: 'DELETE' });
+      await request(`documents?book_id=eq.${encodeURIComponent(bookId)}`, { method: 'DELETE' });
+      await request(`entities?book_id=eq.${encodeURIComponent(bookId)}`, { method: 'DELETE' });
+      await request(`books?id=eq.${encodeURIComponent(bookId)}`, { method: 'DELETE' });
+    } catch (error) {
+      console.warn('Marginalia V2 project delete deferred:', error);
+    }
+  }
+
   async function syncProject(project) {
     if (!isConfigured() || !project) return;
     reportStatus('syncing', 'Syncing with Supabase...');
@@ -256,9 +285,11 @@
     buildSuggestionAuditPayload,
     dedupeSuggestions,
     summarizeSuggestionStatuses,
+    deleteProjectEntity,
+    deleteProjectBook,
   };
 
   if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { buildSuggestionAuditPayload, dedupeSuggestions, summarizeSuggestionStatuses };
+    module.exports = { buildSuggestionAuditPayload, dedupeSuggestions, summarizeSuggestionStatuses, deleteProjectEntity, deleteProjectBook };
   }
 })();

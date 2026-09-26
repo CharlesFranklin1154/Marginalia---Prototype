@@ -13,7 +13,7 @@ Marginalia is a calm, literary writing workbench that lets the writer do the wri
 ## Current Repository State
 
 - Workspace: `C:\Users\CFran\Web Designs\Marginalia`
-- Main app: `Marginalia.html`
+- Main app: `index.html`
 - V1 storage: localStorage, retained as the local/offline source of truth for now
 - Git branch: `main`
 - Last confirmed commit: `Version 3 Updates`
@@ -22,7 +22,7 @@ Marginalia is a calm, literary writing workbench that lets the writer do the wri
 
 ## Current Frontend Features
 
-`Marginalia.html` currently includes:
+`index.html` currently includes:
 
 - Supabase Auth sign-in, sign-up, session restore, logout, and token refresh
 - Existing testing/admin bypass
@@ -53,7 +53,7 @@ Project URL:
 
 `https://svzhtvasgnndvfemnjtv.supabase.co`
 
-A publishable browser key is configured in `Marginalia.html`. Never add service-role keys, database passwords, or access tokens to GitHub, Message Three, or chat.
+A publishable browser key is configured in `index.html`. Never add service-role keys, database passwords, or access tokens to GitHub, Message Three, or chat.
 
 Completed Supabase work:
 
@@ -144,7 +144,7 @@ Useful restart prompt:
 
 ## Work completed on 2026-09-25
 
-- Verified the provenance link flow was already in place and working in `Marginalia.html` before continuing.
+- Verified the provenance link flow was already in place and working in `index.html` before continuing.
 - Persisted returned suggestions into the Supabase `ai_suggestions` audit table through `supabase/v2-adapter.js` using each suggestion's book, document, entity, evidence, source line, confidence, and status.
 - Added the missing `source_line` column to `supabase/schema.sql` so persisted suggestions capture the exact sentence line number.
 - Added deduplication so repeated suggestions from the same source sentence are filtered before the review panel or audit insert.

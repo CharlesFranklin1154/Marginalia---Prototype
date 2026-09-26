@@ -2199,6 +2199,22 @@
     renderEntryAiReviewHistory();
   }
 
+  function suggestionAlreadyApplied(entity, suggestion) {
+    if (!entity || !suggestion) return false;
+    const fieldValue = String(entity[suggestion.field] || '');
+    const normalizedValue = String(suggestion.value || '').trim();
+    const normalizedField = String(fieldValue).trim();
+    if (normalizedValue && normalizedField && normalizedField.includes(normalizedValue)) return true;
+    const sourceText = String(suggestion.sourceText || suggestion.evidence || '').trim();
+    const sourceLine = Number(suggestion.sourceLine || 1);
+    return (Array.isArray(entity.provenance) || []).some(entry => {
+      const sameField = String(entry.field || '') === String(suggestion.field || '');
+      const sameSourceText = String(entry.sourceText || '').trim() === sourceText;
+      const sameSourceLine = Number(entry.sourceLine || 1) === sourceLine;
+      return sameField && sameSourceText && sameSourceLine;
+    });
+  }
+
   function approveEntrySuggestion(index, card, button) {
     const suggestion = entryAiSuggestions[index];
     const p = projects.find(x => x.id === activeProjectId);
@@ -2208,6 +2224,17 @@
     const entryId = parts.slice(2).join(':');
     const entity = (p[kind] || []).find(entry => entry._id === entryId);
     if (!entity) return;
+    if (suggestionAlreadyApplied(entity, suggestion)) {
+      suggestion.status = 'approved';
+      p.updated = Date.now();
+      saveProjects();
+      renderWriterSidebar();
+      button.disabled = true;
+      button.textContent = 'Approved';
+      card.querySelectorAll('button').forEach(action => { action.disabled = true; });
+      renderEntryAiReview();
+      return;
+    }
     const current = String(entity[suggestion.field] || '').trim();
     entity[suggestion.field] = suggestion.operation === 'append' && current
       ? current + '\n' + suggestion.value
@@ -2604,8 +2631,12 @@
   });
   document.getElementById('charDeleteBtn').addEventListener('click', () => {
     const p = projects.find(x => x.id === activeProjectId); if (!p || charIndex === null) return;
-    const name = p.characters[charIndex] && p.characters[charIndex].name ? p.characters[charIndex].name : 'this character';
+    const target = p.characters[charIndex];
+    const name = target && target.name ? target.name : 'this character';
     if (!window.confirm(`Delete "${name}"? This cannot be undone.`)) return;
+    if (window.MarginaliaV2 && window.MarginaliaV2.deleteProjectEntity) {
+      window.MarginaliaV2.deleteProjectEntity(p, 'characters', target && target._id ? target._id : null);
+    }
     p.characters.splice(charIndex, 1);
     saveProjects();
     characterOverlay.classList.remove('show');
@@ -2710,8 +2741,12 @@
   });
   document.getElementById('locDeleteBtn').addEventListener('click', () => {
     const p = projects.find(x => x.id === activeProjectId); if (!p || locIndex === null) return;
-    const name = p.locations[locIndex] && p.locations[locIndex].name ? p.locations[locIndex].name : 'this location';
+    const target = p.locations[locIndex];
+    const name = target && target.name ? target.name : 'this location';
     if (!window.confirm(`Delete "${name}"? This cannot be undone.`)) return;
+    if (window.MarginaliaV2 && window.MarginaliaV2.deleteProjectEntity) {
+      window.MarginaliaV2.deleteProjectEntity(p, 'locations', target && target._id ? target._id : null);
+    }
     p.locations.splice(locIndex, 1);
     saveProjects();
     locationOverlay.classList.remove('show');
@@ -2814,8 +2849,12 @@
   });
   document.getElementById('itemDeleteBtn').addEventListener('click', () => {
     const p = projects.find(x => x.id === activeProjectId); if (!p || itemIndex === null) return;
-    const name = p.items[itemIndex] && p.items[itemIndex].name ? p.items[itemIndex].name : 'this item';
+    const target = p.items[itemIndex];
+    const name = target && target.name ? target.name : 'this item';
     if (!window.confirm(`Delete "${name}"? This cannot be undone.`)) return;
+    if (window.MarginaliaV2 && window.MarginaliaV2.deleteProjectEntity) {
+      window.MarginaliaV2.deleteProjectEntity(p, 'items', target && target._id ? target._id : null);
+    }
     p.items.splice(itemIndex, 1);
     saveProjects();
     itemOverlay.classList.remove('show');
@@ -2849,6 +2888,10 @@
   document.getElementById('deleteStep2Cancel').addEventListener('click', () => deleteStep2Overlay.classList.remove('show'));
   deleteStep2Overlay.addEventListener('click', (e) => { if (e.target === deleteStep2Overlay) deleteStep2Overlay.classList.remove('show'); });
   document.getElementById('deleteStep2Confirm').addEventListener('click', () => {
+    const targetProject = projects.find(x => x.id === deleteTargetId);
+    if (window.MarginaliaV2 && window.MarginaliaV2.deleteProjectBook) {
+      window.MarginaliaV2.deleteProjectBook(deleteTargetId);
+    }
     projects = projects.filter(x => x.id !== deleteTargetId);
     saveProjects();
     deleteStep2Overlay.classList.remove('show');
