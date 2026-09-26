@@ -13,6 +13,47 @@ export function findSourceLine(text, sourceSentence) {
   return sourceIndex < 0 ? 1 : text.slice(0, sourceIndex).split(/\r?\n/).length;
 }
 
+function mentionsOtherNamedEntity(sentence, entityName, characterNames) {
+  const name = String(entityName || '').trim();
+  if (!name) return false;
+  return (Array.isArray(characterNames) ? characterNames : []).some((candidate) => {
+    const otherName = String(candidate || '').trim();
+    if (!otherName || otherName.toLowerCase() === name.toLowerCase()) return false;
+    return new RegExp(`\\b${escapeRegex(otherName)}\\b`, 'i').test(sentence);
+  });
+}
+
+function sentenceMatchesEntity(entity, sentence, text, characterNames) {
+  const name = String(entity && entity.name ? entity.name : '');
+  if (!name) return false;
+  if (new RegExp(`\\b${escapeRegex(name)}\\b`, 'i').test(sentence)) return true;
+  if (mentionsOtherNamedEntity(sentence, name, characterNames)) return false;
+  if (!/\b(?:she|he|they|her|him|their|his|hers)\b/i.test(sentence)) return false;
+
+  const sentenceStart = text.indexOf(sentence);
+  const latestRecentName = characterNames
+    .map((candidate) => ({
+      name: candidate,
+      index: text.toLowerCase().lastIndexOf(String(candidate || '').toLowerCase(), sentenceStart),
+    }))
+    .filter((entry) => entry.index >= 0 && entry.index < sentenceStart)
+    .sort((a, b) => b.index - a.index)[0];
+
+  if (latestRecentName && latestRecentName.name.toLowerCase() !== name.toLowerCase()) return false;
+  return text.toLowerCase().indexOf(name.toLowerCase()) < sentenceStart;
+}
+
+function suggestionKey(suggestion) {
+  const token = [
+    suggestion && suggestion.entityId ? String(suggestion.entityId) : 'anonymous',
+    suggestion && suggestion.field ? String(suggestion.field) : '',
+    suggestion && suggestion.value ? String(suggestion.value).trim() : '',
+    suggestion && (suggestion.evidence || suggestion.sourceText) ? String(suggestion.evidence || suggestion.sourceText).trim() : '',
+    suggestion && suggestion.sourceLine != null ? String(suggestion.sourceLine) : '1',
+  ].join('|').toLowerCase();
+  return token;
+}
+
 function makeSuggestion({ entityId, type, field, operation, value, evidence, sourceText, sourceLine, confidence }) {
   const id = typeof crypto !== 'undefined' && crypto.randomUUID ? `mock-${crypto.randomUUID()}` : `mock-${Date.now()}-${Math.random().toString(16).slice(2)}`;
   return {
@@ -30,15 +71,12 @@ function makeSuggestion({ entityId, type, field, operation, value, evidence, sou
   };
 }
 
-function evaluateCharacterSuggestion(entity, text) {
+function evaluateCharacterSuggestion(entity, text, allNames = []) {
   const sentences = text.split(/(?<=[.!?])\s+/).filter(Boolean);
   const results = [];
 
   for (const sentence of sentences) {
-    const hasName = new RegExp(`\\b${escapeRegex(entity.name)}\\b`, 'i').test(sentence);
-    const entityWasIntroducedEarlier = text.toLowerCase().indexOf(entity.name.toLowerCase()) < text.indexOf(sentence);
-    const hasPronounReference = /\b(?:she|he|they|her|him|their|his|hers)\b/i.test(sentence);
-    if (!hasName && !(entityWasIntroducedEarlier && hasPronounReference)) continue;
+    if (!sentenceMatchesEntity(entity, sentence, text, allNames)) continue;
     const lower = sentence.toLowerCase();
 
     if (/\bscar(?:ring)?\b/i.test(lower)) {
@@ -157,6 +195,10 @@ function evaluateItemSuggestion(entity, text) {
 export function buildMockSuggestions(text, entities) {
   const suggestions = [];
   const safeEntities = Array.isArray(entities) ? entities : [];
+  const characterNames = safeEntities
+    .filter((entity) => entity && entity.kind === 'character' && entity.name)
+    .map((entity) => String(entity.name))
+    .filter(Boolean);
 
   for (const entity of safeEntities) {
     if (!entity || !entity.name || !entity.id) continue;
@@ -164,7 +206,7 @@ export function buildMockSuggestions(text, entities) {
     if (!sourceText || !sourceText.trim()) continue;
 
     if (entity.kind === 'character') {
-      const entitySuggestions = evaluateCharacterSuggestion(entity, text);
+      const entitySuggestions = evaluateCharacterSuggestion(entity, text, characterNames);
       suggestions.push(...entitySuggestions);
       continue;
     }
@@ -181,5 +223,11 @@ export function buildMockSuggestions(text, entities) {
     }
   }
 
-  return suggestions;
+  const seen = new Set();
+  return suggestions.filter((suggestion) => {
+    const key = suggestionKey(suggestion);
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }

@@ -17,4 +17,20 @@ assert.ok(suggestions.some((item) => item.entityId === 'char-2' && item.field ==
 assert.ok(suggestions.some((item) => item.entityId === 'loc-1' && item.field === 'description'));
 assert.ok(suggestions.some((item) => item.entityId === 'item-1' && item.field === 'details'));
 
+const pronounCheck = buildMockSuggestions(
+  'Bob watched Mira across the room. Mira touched a scar above her left eye. She kept twirling her ring when nervous. The chapel sat beside the river. Mira wore a dark wool coat.',
+  [
+    { id: 'char-bob', kind: 'character', name: 'Bob' },
+    { id: 'char-mira', kind: 'character', name: 'Mira' },
+    { id: 'item-ring', kind: 'item', name: 'ring' },
+    { id: 'loc-chapel', kind: 'location', name: 'chapel' },
+  ],
+);
+
+assert.ok(pronounCheck.some((item) => item.entityId === 'char-mira' && item.field === 'physical'));
+assert.ok(pronounCheck.some((item) => item.entityId === 'char-mira' && item.field === 'habits'));
+assert.ok(!pronounCheck.some((item) => item.entityId === 'char-bob' && item.field === 'physical'));
+assert.ok(!pronounCheck.some((item) => item.entityId === 'char-bob' && item.field === 'habits'));
+assert.ok(pronounCheck.some((item) => item.entityId === 'loc-chapel' && item.field === 'description'));
+
 console.log('mock suggestion expansion tests passed');
