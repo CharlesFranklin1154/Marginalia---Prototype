@@ -376,9 +376,10 @@
   .writer-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
   .entry-editor-wrap { display: flex; flex: 1; min-height: 0; }
   .entry-line-numbers {
-    flex: 0 0 48px; overflow: hidden; margin: 0; padding: 18px 10px 18px 0; border: 1px solid var(--line); border-right: 0;
-    background: var(--bg); color: var(--ink-faint); text-align: right; user-select: none; font: 0.82rem/1.75 var(--font-sans);
+    position: relative; flex: 0 0 48px; overflow: hidden; margin: 0; padding: 0; border: 1px solid var(--line); border-right: 0;
+    background: var(--bg); color: var(--ink-faint); text-align: right; user-select: none; font: 0.72rem/1 var(--font-sans);
   }
+  .entry-line-numbers span { position: absolute; right: 10px; white-space: nowrap; }
 
   .writer-sidebar {
     width: 250px; flex-shrink: 0; border-left: 1px solid var(--line); padding-left: 18px;
@@ -467,6 +468,14 @@
   .rich-editor h2 { font-family: var(--font-serif); font-size: 1.25rem; margin: 0.6em 0 0.35em; color: var(--ink); }
   .rich-editor h3 { font-family: var(--font-serif); font-size: 1.08rem; margin: 0.6em 0 0.35em; color: var(--ink); }
   .rich-editor p { margin: 0 0 0.9em; }
+  .rich-editor .writer-style-title { font-family: var(--font-serif); font-size: 2rem; font-weight: 500; line-height: 1.2; margin: 0.45em 0 0.7em; }
+  .rich-editor .writer-style-attribution { color: var(--ink-soft); font-size: 0.86em; font-style: italic; text-align: right; }
+  .rich-editor .writer-style-quote { margin: 1em 0; padding: 0.2em 0 0.2em 1em; border-left: 3px solid var(--moss); color: var(--ink-soft); }
+  .rich-editor .writer-style-caption { color: var(--ink-faint); font-size: 0.8em; line-height: 1.5; }
+  .rich-editor .writer-style-centered { text-align: center; }
+  .rich-editor pre.writer-style-code { overflow-x: auto; margin: 0.8em 0; padding: 0.8em 1em; border-radius: 5px; background: var(--bg); font: 0.86em/1.55 'Courier New', monospace; white-space: pre-wrap; }
+  .rich-editor .writer-style-verse { padding-left: 1.2em; white-space: pre-wrap; }
+  .rich-editor code.writer-style-code-span { padding: 0.08em 0.28em; border-radius: 3px; background: var(--bg); font: 0.9em 'Courier New', monospace; }
   .rich-editor ul, .rich-editor ol { padding-left: 1.4em; margin: 0 0 0.9em; }
   .writer-stats { display: flex; align-items: center; gap: 18px; margin-right: auto; color: var(--ink-faint); font-size: 0.76rem; }
   .writer-stats label { display: inline-flex; align-items: center; gap: 7px; }
@@ -869,10 +878,23 @@
 
           <div class="rt-toolbar" id="rtToolbar">
             <select id="rtFormatBlock" title="Paragraph style">
-              <option value="P">Paragraph</option>
-              <option value="H1">Heading 1</option>
-              <option value="H2">Heading 2</option>
-              <option value="H3">Heading 3</option>
+              <option value="paragraph">No Style</option>
+              <optgroup label="Paragraph Styles">
+                <option value="attribution">Attribution</option>
+                <option value="blockquote">Block Quote</option>
+                <option value="caption">Caption</option>
+                <option value="centered">Centered Text</option>
+                <option value="code-block">Code Block</option>
+                <option value="heading-1">Heading 1</option>
+                <option value="heading-2">Heading 2</option>
+                <option value="heading-3">Heading 3</option>
+                <option value="title">Title</option>
+                <option value="verse">Verse</option>
+              </optgroup>
+              <optgroup label="Character Styles">
+                <option value="emphasis">Emphasis</option>
+                <option value="code-span">Code Span</option>
+              </optgroup>
             </select>
             <select id="rtFontName" title="Font">
               <option value="Karla, sans-serif">Karla</option>
@@ -907,7 +929,7 @@
             <button type="button" data-cmd="removeFormat" title="Clear formatting">Clear</button>
           </div>
           <div class="entry-editor-wrap">
-            <pre id="entryLineNumbers" class="entry-line-numbers" aria-hidden="true">1</pre>
+            <div id="entryLineNumbers" class="entry-line-numbers" aria-hidden="true"><span>1</span></div>
             <div id="entryContentEditable" class="rich-editor" contenteditable="true"></div>
           </div>
         </div>
@@ -2101,11 +2123,58 @@
     return text.endsWith('\n') ? text.slice(0, -1) : text;
   }
 
+  let entryLineRenderFrame = null;
+
+  function renderEntryLineNumbers() {
+    if (!entryOverlay.classList.contains('show')) return;
+    const rows = [];
+    function addVisualRow(rect) {
+      if (!rect.height) return;
+      const previous = rows[rows.length - 1];
+      if (previous && rect.top < previous.bottom && rect.bottom > previous.top) {
+        previous.top = Math.min(previous.top, rect.top);
+        previous.bottom = Math.max(previous.bottom, rect.bottom);
+      } else {
+        rows.push({ top: rect.top, bottom: rect.bottom });
+      }
+    }
+    const walker = document.createTreeWalker(entryContentEditable, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT);
+    let node;
+    while ((node = walker.nextNode())) {
+      if (node.nodeType === Node.TEXT_NODE) {
+        if (!node.nodeValue.trim()) continue;
+        const range = document.createRange();
+        range.selectNodeContents(node);
+        Array.from(range.getClientRects()).forEach(addVisualRow);
+      } else if (node.nodeName === 'BR') {
+        const range = document.createRange();
+        range.setStartAfter(node);
+        range.collapse(true);
+        addVisualRow(range.getBoundingClientRect());
+      }
+    }
+    const gutterTop = entryLineNumbers.getBoundingClientRect().top + entryLineNumbers.clientTop;
+    entryLineNumbers.replaceChildren();
+    (rows.length ? rows : [{ top: gutterTop, bottom: gutterTop }]).forEach((row, index) => {
+      const number = document.createElement('span');
+      number.textContent = String(index + 1);
+      number.style.top = `${row.top - gutterTop}px`;
+      entryLineNumbers.appendChild(number);
+    });
+    entryLineCount.textContent = 'Lines: ' + Math.max(rows.length, 1);
+  }
+
+  function scheduleEntryLineRender() {
+    if (entryLineRenderFrame !== null) return;
+    entryLineRenderFrame = requestAnimationFrame(() => {
+      entryLineRenderFrame = null;
+      renderEntryLineNumbers();
+    });
+  }
+  window.addEventListener('resize', scheduleEntryLineRender);
+
   function updateEntryLineCount() {
     const text = getEntryPlainText();
-    const lineCount = text ? text.split(/\r?\n/).length : 1;
-    entryLineCount.textContent = 'Lines: ' + lineCount;
-    entryLineNumbers.textContent = Array.from({ length: lineCount }, (_, index) => index + 1).join('\n');
     const wordCount = text.trim() ? text.trim().split(/\s+/).length : 0;
     const goal = Number(entryWordGoal.value) || 0;
     entryWordCount.textContent = goal ? `${wordCount} / ${goal} words` : `${wordCount} words`;
@@ -2113,6 +2182,7 @@
     entryWordCount.classList.toggle('goal-met', goalMet);
     if (goalMet) entryWordCount.dataset.tooltip = "You've hit your goal. Great job!";
     else delete entryWordCount.dataset.tooltip;
+    scheduleEntryLineRender();
   }
 
   function highlightSourceText(sourceText) {
@@ -2170,7 +2240,6 @@
       entryWordGoal.value = entry.wordGoal || '';
       entryDeleteBtn.style.visibility = 'visible';
     }
-    updateEntryLineCount();
     writerFilter = 'all';
     document.querySelectorAll('#writerFilterChips .chip').forEach(c => c.classList.toggle('active', c.getAttribute('data-filter') === 'all'));
     closeWriterDrawer();
@@ -2181,6 +2250,7 @@
     entryAiReviewPanel.classList.remove('show');
     captureEntryModalSnapshot();
     entryOverlay.classList.add('show');
+    updateEntryLineCount();
     if (pendingSourceHighlight) {
       const sourceText = pendingSourceHighlight.sourceText;
       pendingSourceHighlight = null;
@@ -2216,7 +2286,7 @@
   entryOverlay.addEventListener('click', (e) => { if (e.target === entryOverlay) closeWriterModal(); });
   entryNameInput.addEventListener('input', markUnsaved);
   entryWordGoal.addEventListener('input', () => { markUnsaved(); updateEntryLineCount(); });
-  entryContentEditable.addEventListener('scroll', () => { entryLineNumbers.scrollTop = entryContentEditable.scrollTop; });
+  entryContentEditable.addEventListener('scroll', scheduleEntryLineRender);
 
   function captureOverlaySnapshot(fields, images) {
     return {
@@ -2548,11 +2618,103 @@
     entryContentEditable.focus();
     document.execCommand(cmd, false, value);
     updateToolbarState();
+    updateEntryLineCount();
   }
   document.querySelectorAll('#rtToolbar button[data-cmd]').forEach(btn => {
     btn.addEventListener('click', () => rtExec(btn.getAttribute('data-cmd')));
   });
-  document.getElementById('rtFormatBlock').addEventListener('change', (e) => { rtExec('formatBlock', e.target.value); });
+  const paragraphStyleClasses = ['writer-style-title', 'writer-style-attribution', 'writer-style-quote', 'writer-style-caption', 'writer-style-centered', 'writer-style-code', 'writer-style-verse'];
+  const paragraphStyleDefinitions = {
+    paragraph: { tag: 'P' },
+    attribution: { tag: 'P', className: 'writer-style-attribution' },
+    blockquote: { tag: 'BLOCKQUOTE', className: 'writer-style-quote' },
+    caption: { tag: 'P', className: 'writer-style-caption' },
+    centered: { tag: 'P', className: 'writer-style-centered' },
+    'code-block': { tag: 'PRE', className: 'writer-style-code' },
+    'heading-1': { tag: 'H1' },
+    'heading-2': { tag: 'H2' },
+    'heading-3': { tag: 'H3' },
+    title: { tag: 'H1', className: 'writer-style-title' },
+    verse: { tag: 'P', className: 'writer-style-verse' },
+  };
+
+  function getSelectedEditorBlock() {
+    const selection = window.getSelection();
+    let node = selection && selection.anchorNode;
+    if (node && node.nodeType === Node.TEXT_NODE) node = node.parentElement;
+    while (node && node !== entryContentEditable) {
+      if (node.matches && node.matches('p,h1,h2,h3,h4,h5,h6,blockquote,pre,li,div')) return node;
+      node = node.parentElement;
+    }
+    return null;
+  }
+
+  function updateParagraphStyleControl() {
+    const block = getSelectedEditorBlock();
+    if (!block) return;
+    const classStyles = {
+      'writer-style-attribution': 'attribution',
+      'writer-style-quote': 'blockquote',
+      'writer-style-caption': 'caption',
+      'writer-style-centered': 'centered',
+      'writer-style-code': 'code-block',
+      'writer-style-title': 'title',
+      'writer-style-verse': 'verse',
+    };
+    const selectedClass = paragraphStyleClasses.find(className => block.classList.contains(className));
+    if (selectedClass) {
+      document.getElementById('rtFormatBlock').value = classStyles[selectedClass];
+      return;
+    }
+    const tagStyles = { H1: 'heading-1', H2: 'heading-2', H3: 'heading-3', BLOCKQUOTE: 'blockquote', PRE: 'code-block' };
+    document.getElementById('rtFormatBlock').value = tagStyles[block.tagName] || 'paragraph';
+  }
+
+  function applyCharacterStyle(styleName) {
+    const selection = window.getSelection();
+    if (!selection || selection.isCollapsed || !entryContentEditable.contains(selection.anchorNode) || !entryContentEditable.contains(selection.focusNode)) return;
+    const range = selection.getRangeAt(0);
+    const findBlock = (node) => {
+      if (node.nodeType === Node.TEXT_NODE) node = node.parentElement;
+      while (node && node !== entryContentEditable) {
+        if (node.matches && node.matches('p,h1,h2,h3,h4,h5,h6,blockquote,pre,li,div')) return node;
+        node = node.parentElement;
+      }
+      return null;
+    };
+    if (findBlock(range.startContainer) !== findBlock(range.endContainer)) return;
+    const wrapper = document.createElement(styleName === 'code-span' ? 'code' : 'em');
+    wrapper.className = styleName === 'code-span' ? 'writer-style-code-span' : 'writer-style-emphasis';
+    wrapper.appendChild(range.extractContents());
+    range.insertNode(wrapper);
+    selection.removeAllRanges();
+    const selectedRange = document.createRange();
+    selectedRange.selectNodeContents(wrapper);
+    selection.addRange(selectedRange);
+    markUnsaved();
+    updateEntryLineCount();
+  }
+
+  function applyParagraphStyle(styleName) {
+    if (styleName === 'emphasis' || styleName === 'code-span') {
+      applyCharacterStyle(styleName);
+      updateParagraphStyleControl();
+      return;
+    }
+    const definition = paragraphStyleDefinitions[styleName] || paragraphStyleDefinitions.paragraph;
+    entryContentEditable.focus();
+    document.execCommand('formatBlock', false, definition.tag);
+    const block = getSelectedEditorBlock();
+    if (block) {
+      block.classList.remove(...paragraphStyleClasses);
+      if (definition.className) block.classList.add(definition.className);
+    }
+    markUnsaved();
+    updateParagraphStyleControl();
+    updateEntryLineCount();
+  }
+
+  document.getElementById('rtFormatBlock').addEventListener('change', (e) => applyParagraphStyle(e.target.value));
   document.getElementById('rtFontName').addEventListener('change', (e) => { rtExec('fontName', e.target.value); });
   document.getElementById('rtFontSize').addEventListener('change', (e) => { rtExec('fontSize', e.target.value); });
   document.getElementById('rtColor').addEventListener('input', (e) => { rtExec('foreColor', e.target.value); });
@@ -2564,6 +2726,7 @@
       try { active = document.queryCommandState(cmd); } catch (e) {}
       btn.classList.toggle('active', active);
     });
+    updateParagraphStyleControl();
   }
   entryContentEditable.addEventListener('input', markUnsaved);
   entryContentEditable.addEventListener('input', updateEntryLineCount);
