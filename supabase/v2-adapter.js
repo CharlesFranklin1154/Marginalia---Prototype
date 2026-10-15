@@ -6,22 +6,56 @@
     supabaseUrl: '',
     anonKey: '',
     accessToken: '',
+    cloudReady: false,
   };
 
   let syncTimer = null;
-  let pendingProject = null;
+  let pendingProjects = null;
+  let syncQueue = Promise.resolve();
+  let authGeneration = 0;
   let statusListener = null;
 
   function reportStatus(state, message) {
     if (statusListener) statusListener(state, message);
   }
 
-  function isConfigured() {
+  function hasCredentials() {
     return config.enabled && config.supabaseUrl && config.anonKey && config.accessToken;
   }
 
+  function isConfigured() {
+    return hasCredentials() && config.cloudReady;
+  }
+
   function setAccessToken(accessToken) {
-    config.accessToken = accessToken || '';
+    const nextToken = accessToken || '';
+    if (config.accessToken !== nextToken) authGeneration += 1;
+    config.accessToken = nextToken;
+  }
+
+  function setCloudReady(ready) {
+    const nextReady = Boolean(ready);
+    if (config.cloudReady !== nextReady) authGeneration += 1;
+    config.cloudReady = nextReady;
+  }
+
+  function captureAuthContext() {
+    return { accessToken: config.accessToken, url: config.supabaseUrl, generation: authGeneration };
+  }
+
+  function assertAuthContext(context) {
+    if (context.generation !== authGeneration) {
+      throw new Error('The signed-in account changed during sync. Sign in again to retry.');
+    }
+  }
+
+  function projectUpdatedAt(project) {
+    const timestamp = Number(project && (project.syncUpdated || project.updated)) || Date.now();
+    return new Date(timestamp).toISOString();
+  }
+
+  function projectSyncTimestamp(project) {
+    return Number(project && (project.syncUpdated || project.updated)) || 0;
   }
 
   function headers() {
@@ -33,16 +67,24 @@
     };
   }
 
-  async function request(path, options) {
-    const response = await fetch(`${config.supabaseUrl}/rest/v1/${path}`, {
+  async function request(path, options, context = captureAuthContext()) {
+    assertAuthContext(context);
+    const requestHeaders = { ...headers(), ...(options && options.headers) };
+    requestHeaders.Authorization = `Bearer ${context.accessToken}`;
+    const response = await fetch(`${context.url}/rest/v1/${path}`, {
       ...options,
-      headers: { ...headers(), ...(options && options.headers) },
+      headers: requestHeaders,
     });
+    assertAuthContext(context);
     if (!response.ok) {
       const detail = await response.text();
+      assertAuthContext(context);
       throw new Error(`V2 request failed: ${response.status} ${detail.slice(0, 300)}`);
     }
-    return response.status === 204 ? null : response.json();
+    if (response.status === 204) return null;
+    const data = await response.json();
+    assertAuthContext(context);
+    return data;
   }
 
   function projectPayload(project) {
@@ -52,18 +94,19 @@
       theme: project.theme || 'rainy',
       cover_url: project.cover || null,
       brain_dump: project.brainDump || '',
-      updated_at: new Date(project.updated || Date.now()).toISOString(),
+      updated_at: projectUpdatedAt(project),
     };
   }
 
   function entityPayload(project, bookId, kind, entry) {
+    if (!entry || !entry._id) throw new Error(`Cannot sync ${kind} entry without a local id.`);
     return {
       client_key: `${project.id}:${kind}:${entry._id}`,
       book_id: bookId,
       kind: ({ characters: 'character', locations: 'location', items: 'item', lore: 'lore' })[kind] || 'item',
       name: entry.name || 'Untitled',
       data: entry,
-      updated_at: new Date().toISOString(),
+      updated_at: projectUpdatedAt(project),
     };
   }
 
@@ -77,6 +120,7 @@
   }
 
   function documentPayload(project, bookId, kind, entry) {
+    if (!entry || !entry._id) throw new Error(`Cannot sync ${kind} entry without a local id.`);
     const contentHtml = entry.details || '';
     const contentText = htmlToPlainText(contentHtml);
     return {
@@ -87,8 +131,98 @@
       content_html: contentHtml,
       content_text: contentText,
       word_goal: entry.wordGoal == null ? null : Number(entry.wordGoal),
-      updated_at: new Date().toISOString(),
+      updated_at: projectUpdatedAt(project),
     };
+  }
+
+  function remoteProjectToLocal(book, documents, entities) {
+    const project = {
+      id: book.client_key,
+      title: book.title || 'Untitled book',
+      theme: book.theme || 'rainy',
+      cover: book.cover_url || null,
+      brainDump: book.brain_dump || '',
+      updated: Date.parse(book.updated_at) || Date.now(),
+      syncUpdated: Date.parse(book.updated_at) || Date.now(),
+      lastOpened: null,
+    };
+    for (const category of ['chapters', 'scenes', 'brainDumps', 'characters', 'locations', 'items', 'lore']) {
+      project[category] = [];
+    }
+
+    const categoriesByKind = {
+      character: 'characters',
+      location: 'locations',
+      item: 'items',
+      lore: 'lore',
+    };
+    for (const entity of entities) {
+      const category = categoriesByKind[entity.kind];
+      if (!category) continue;
+      const keyParts = String(entity.client_key || '').split(':');
+      const entryId = keyParts.length > 2 ? keyParts.slice(2).join(':') : null;
+      const data = entity.data && typeof entity.data === 'object' ? entity.data : {};
+      project[category].push({
+        ...data,
+        _id: data._id || entryId || entity.id,
+        name: entity.name || data.name || 'Untitled',
+      });
+    }
+
+    const categoriesByDocumentKind = {
+      chapter: 'chapters',
+      scene: 'scenes',
+      brain_dump: 'brainDumps',
+    };
+    for (const document of documents) {
+      const category = categoriesByDocumentKind[document.kind];
+      if (!category) continue;
+      const keyParts = String(document.client_key || '').split(':');
+      const entryId = keyParts.length > 2 ? keyParts.slice(2).join(':') : null;
+      project[category].push({
+        _id: entryId || document.id,
+        name: document.title || 'Untitled',
+        details: document.content_html || '',
+        wordGoal: document.word_goal == null ? null : Number(document.word_goal),
+      });
+    }
+    return project;
+  }
+
+  function mergeProjectLists(localProjects, remoteProjects) {
+    const localById = new Map((Array.isArray(localProjects) ? localProjects : []).map(project => [project.id, project]));
+    const remoteById = new Map((Array.isArray(remoteProjects) ? remoteProjects : []).map(project => [project.id, project]));
+    const merged = [];
+    const projectIds = new Set([...localById.keys(), ...remoteById.keys()]);
+
+    for (const id of projectIds) {
+      const local = localById.get(id);
+      const remote = remoteById.get(id);
+      if (!local) {
+        merged.push(remote);
+        continue;
+      }
+      if (!remote) {
+        merged.push(local);
+        continue;
+      }
+
+      const preferLocal = projectSyncTimestamp(local) >= projectSyncTimestamp(remote);
+      const base = preferLocal ? local : remote;
+      const other = preferLocal ? remote : local;
+      const project = { ...other, ...base };
+      for (const category of ['chapters', 'scenes', 'brainDumps', 'characters', 'locations', 'items', 'lore']) {
+        const preferredEntries = Array.isArray(base[category]) ? base[category] : [];
+        const otherEntries = Array.isArray(other[category]) ? other[category] : [];
+        const entries = new Map(preferredEntries.map(entry => [entry._id, entry]));
+        for (const entry of otherEntries) {
+          if (!entries.has(entry._id)) entries.set(entry._id, entry);
+        }
+        project[category] = Array.from(entries.values());
+      }
+      merged.push(project);
+    }
+    return merged;
   }
 
   function buildSuggestionAuditPayload({ bookId, documentId, entityId, suggestion }) {
@@ -136,94 +270,123 @@
     return summary;
   }
 
-  async function deleteProjectEntity(project, kind, entryId) {
-    if (!isConfigured() || !project || !entryId) return;
-    const books = await request(`books?client_key=eq.${encodeURIComponent(project.id)}&select=id`);
-    const bookId = books && books[0] && books[0].id;
-    if (!bookId) return;
-    const entityKind = ({ characters: 'character', locations: 'location', items: 'item', lore: 'lore' })[kind] || 'item';
-    const clientKey = `${project.id}:${kind}:${entryId}`;
-    try {
-      await request(`entities?book_id=eq.${encodeURIComponent(bookId)}&kind=eq.${encodeURIComponent(entityKind)}&client_key=eq.${encodeURIComponent(clientKey)}`, { method: 'DELETE' });
-    } catch (error) {
-      console.warn('Marginalia V2 entity delete deferred:', error);
+  async function deleteStaleRows(table, bookId, keptKeys, context) {
+    const rows = await request(`${table}?book_id=eq.${encodeURIComponent(bookId)}&select=id,client_key`, undefined, context);
+    const kept = new Set(keptKeys);
+    const staleIds = rows.filter(row => !kept.has(row.client_key)).map(row => row.id);
+    if (staleIds.length) {
+      await request(`${table}?id=in.${encodeURIComponent(`(${staleIds.join(',')})`)}`, { method: 'DELETE' }, context);
     }
   }
 
-  async function deleteProjectBook(projectId) {
-    if (!isConfigured() || !projectId) return;
-    const books = await request(`books?client_key=eq.${encodeURIComponent(projectId)}&select=id`);
-    const bookId = books && books[0] && books[0].id;
-    if (!bookId) return;
-    try {
-      await request(`ai_suggestions?book_id=eq.${encodeURIComponent(bookId)}`, { method: 'DELETE' });
-      await request(`documents?book_id=eq.${encodeURIComponent(bookId)}`, { method: 'DELETE' });
-      await request(`entities?book_id=eq.${encodeURIComponent(bookId)}`, { method: 'DELETE' });
-      await request(`books?id=eq.${encodeURIComponent(bookId)}`, { method: 'DELETE' });
-    } catch (error) {
-      console.warn('Marginalia V2 project delete deferred:', error);
-    }
-  }
-
-  async function syncProject(project) {
-    if (!isConfigured() || !project) return;
-    reportStatus('syncing', 'Syncing with Supabase...');
+  async function syncProjectData(project, context) {
     const books = await request('books?on_conflict=client_key&select=id,client_key', {
       method: 'POST',
       headers: { Prefer: 'resolution=merge-duplicates,return=representation' },
       body: JSON.stringify({ ...projectPayload(project), user_id: undefined }),
-    });
+    }, context);
     const bookId = books && books[0] && books[0].id;
     if (!bookId) throw new Error('V2 book sync did not return an id.');
-    for (const kind of ['characters', 'locations', 'items', 'lore']) {
-      const entities = (project[kind] || []).map(entry => entityPayload(project, bookId, kind, entry));
-      if (entities.length) {
-        try {
-          await request('entities?on_conflict=client_key', { method: 'POST', body: JSON.stringify(entities) });
-        } catch (error) {
-          console.warn(`Marginalia V2 ${kind} sync deferred:`, error);
-        }
-      }
+    const entities = ['characters', 'locations', 'items', 'lore']
+      .flatMap(kind => (project[kind] || []).map(entry => entityPayload(project, bookId, kind, entry)));
+    if (entities.length) {
+      await request('entities?on_conflict=client_key', { method: 'POST', body: JSON.stringify(entities) }, context);
     }
-    for (const kind of ['chapters', 'scenes', 'brainDumps']) {
-      const documents = (project[kind] || []).map(entry => documentPayload(project, bookId, kind, entry));
-      if (documents.length) {
-        try {
-          await request('documents?on_conflict=client_key', { method: 'POST', body: JSON.stringify(documents) });
-        } catch (error) {
-          console.warn(`Marginalia V2 ${kind} sync deferred:`, error);
-        }
-      }
+    const documents = ['chapters', 'scenes', 'brainDumps']
+      .flatMap(kind => (project[kind] || []).map(entry => documentPayload(project, bookId, kind, entry)));
+    if (documents.length) {
+      await request('documents?on_conflict=client_key', { method: 'POST', body: JSON.stringify(documents) }, context);
     }
-    reportStatus('synced', 'Saved locally and synced to Supabase');
+    await Promise.all([
+      deleteStaleRows('entities', bookId, entities.map(entity => entity.client_key), context),
+      deleteStaleRows('documents', bookId, documents.map(document => document.client_key), context),
+    ]);
   }
 
-  function scheduleProjectSync(project) {
+  async function loadProjects() {
+    if (!hasCredentials()) throw new Error('Marginalia V2 backend is not configured.');
+    const context = captureAuthContext();
+    const books = await request('books?select=id,client_key,title,theme,cover_url,brain_dump,updated_at&order=updated_at.asc', undefined, context);
+    return Promise.all(books.map(async book => {
+      const [documents, entities] = await Promise.all([
+        request(`documents?book_id=eq.${encodeURIComponent(book.id)}&select=id,client_key,kind,title,content_html,word_goal&order=created_at.asc`, undefined, context),
+        request(`entities?book_id=eq.${encodeURIComponent(book.id)}&select=id,client_key,kind,name,data&order=created_at.asc`, undefined, context),
+      ]);
+      return remoteProjectToLocal(book, documents, entities);
+    }));
+  }
+
+  async function syncProject(project, context = captureAuthContext()) {
+    if (!isConfigured() || !project) return;
+    reportStatus('syncing', 'Syncing with Supabase...');
+    const operation = syncQueue.then(async () => {
+      await syncProjectData(project, context);
+      reportStatus('synced', 'Saved locally and synced to Supabase');
+    });
+    syncQueue = operation.catch(() => {});
+    return operation;
+  }
+
+  async function syncProjects(projects, context = captureAuthContext()) {
+    if (!isConfigured()) throw new Error('Marginalia V2 backend is not configured.');
+    const safeProjects = Array.isArray(projects) ? projects : [];
+    reportStatus('syncing', 'Syncing your library with Supabase...');
+    const operation = syncQueue.then(async () => {
+      for (const project of safeProjects) await syncProjectData(project, context);
+
+      const remoteBooks = await request('books?select=id,client_key', undefined, context);
+      const keptKeys = new Set(safeProjects.map(project => project.id));
+      const staleIds = remoteBooks.filter(book => !keptKeys.has(book.client_key)).map(book => book.id);
+      if (staleIds.length) {
+        await request(`books?id=in.${encodeURIComponent(`(${staleIds.join(',')})`)}`, { method: 'DELETE' }, context);
+      }
+      reportStatus('synced', 'Saved locally and synced to Supabase');
+    });
+    syncQueue = operation.catch(() => {});
+    return operation;
+  }
+
+  function scheduleProjectsSync(projects) {
     if (!isConfigured()) return;
-    pendingProject = project;
+    pendingProjects = { projects: Array.isArray(projects) ? projects.slice() : [], context: captureAuthContext() };
     clearTimeout(syncTimer);
     syncTimer = setTimeout(async () => {
-      const nextProject = pendingProject;
-      pendingProject = null;
+      const pending = pendingProjects;
+      pendingProjects = null;
+      if (!pending) return;
       try {
-        await syncProject(nextProject);
+        await syncProjects(pending.projects, pending.context);
       } catch (error) {
         console.warn('Marginalia V2 sync deferred:', error);
-        reportStatus('error', 'Saved locally; Supabase sync needs attention');
+        reportStatus('error', `Saved locally; Supabase sync needs attention: ${error.message}`);
       }
     }, 500);
   }
 
-  async function analyzeScene(payload) {
+  function scheduleProjectSync(project) {
+    scheduleProjectsSync(project ? [project] : []);
+  }
+
+  function clearPendingSync() {
+    clearTimeout(syncTimer);
+    syncTimer = null;
+    pendingProjects = null;
+  }
+
+  async function analyzeScene(payload, context = captureAuthContext()) {
     if (!isConfigured()) throw new Error('Marginalia V2 backend is not configured.');
+    assertAuthContext(context);
     if (window.marginaliaSupabaseClient) {
       const { data, error } = await window.marginaliaSupabaseClient.functions.invoke('analyze-scene', { body: payload });
+      assertAuthContext(context);
       if (error) throw new Error(error.message || 'The analyze-scene function failed.');
       return data;
     }
-    const response = await fetch(`${config.supabaseUrl}/functions/v1/analyze-scene`, {
+    const requestHeaders = headers();
+    requestHeaders.Authorization = `Bearer ${context.accessToken}`;
+    const response = await fetch(`${context.url}/functions/v1/analyze-scene`, {
       method: 'POST',
-      headers: headers(),
+      headers: requestHeaders,
       body: JSON.stringify(payload),
     });
     if (!response.ok) throw new Error(`Scene analysis failed: ${response.status}`);
@@ -232,22 +395,23 @@
 
   async function analyzeProjectEntry(project, entry) {
     if (!isConfigured()) throw new Error('Marginalia V2 backend is not configured.');
-    await syncProject(project);
-    const books = await request(`books?client_key=eq.${encodeURIComponent(project.id)}&select=id`);
+    const context = captureAuthContext();
+    await syncProject(project, context);
+    const books = await request(`books?client_key=eq.${encodeURIComponent(project.id)}&select=id`, undefined, context);
     const bookId = books && books[0] && books[0].id;
     if (!bookId) throw new Error('This book has not synced to Supabase yet.');
-    const entities = await request(`entities?book_id=eq.${encodeURIComponent(bookId)}&select=id,client_key,kind,name,data`);
+    const entities = await request(`entities?book_id=eq.${encodeURIComponent(bookId)}&select=id,client_key,kind,name,data`, undefined, context);
     const entityById = new Map(entities.map(entity => [entity.id, entity]));
     const remoteDocumentClientKey = entry && entry.category && entry._id ? `${project.id}:${entry.category}:${entry._id}` : null;
     const documentMatch = remoteDocumentClientKey
-      ? await request(`documents?book_id=eq.${encodeURIComponent(bookId)}&client_key=eq.${encodeURIComponent(remoteDocumentClientKey)}&select=id,client_key`)
+      ? await request(`documents?book_id=eq.${encodeURIComponent(bookId)}&client_key=eq.${encodeURIComponent(remoteDocumentClientKey)}&select=id,client_key`, undefined, context)
       : [];
     const documentId = documentMatch && documentMatch[0] ? documentMatch[0].id : null;
     const result = await analyzeScene({
       bookId,
       text: htmlToPlainText(entry.details),
       entities: entities.map(entity => ({ id: entity.id, kind: entity.kind, name: entity.name, data: entity.data || {} })),
-    });
+    }, context);
     result.suggestions = dedupeSuggestions((result.suggestions || []).map(suggestion => {
       const entity = entityById.get(suggestion.entityId);
       return {
@@ -273,7 +437,7 @@
           method: 'POST',
           headers: { Prefer: 'return=minimal' },
           body: JSON.stringify(suggestionsForAudit),
-        });
+        }, context);
       } catch (error) {
         console.warn('Marginalia V2 suggestion audit deferred:', error);
       }
@@ -285,9 +449,15 @@
   root.MarginaliaV2 = {
     config,
     setAccessToken,
+    setCloudReady,
+    clearPendingSync,
     setStatusListener(listener) { statusListener = listener; },
     scheduleProjectSync,
+    scheduleProjectsSync,
     syncProject,
+    syncProjects,
+    loadProjects,
+    mergeProjectLists,
     analyzeScene,
     analyzeProjectEntry,
     documentPayload,
@@ -295,11 +465,22 @@
     buildSuggestionAuditPayload,
     dedupeSuggestions,
     summarizeSuggestionStatuses,
-    deleteProjectEntity,
-    deleteProjectBook,
   };
 
   if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { documentPayload, entityPayload, buildSuggestionAuditPayload, dedupeSuggestions, summarizeSuggestionStatuses, deleteProjectEntity, deleteProjectBook };
+    module.exports = {
+      documentPayload,
+      entityPayload,
+      buildSuggestionAuditPayload,
+      dedupeSuggestions,
+      summarizeSuggestionStatuses,
+      remoteProjectToLocal,
+      mergeProjectLists,
+      loadProjects,
+      syncProject,
+      syncProjects,
+      setCloudReady,
+      clearPendingSync,
+    };
   }
 })();

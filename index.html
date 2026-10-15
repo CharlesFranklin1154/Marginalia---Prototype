@@ -1550,6 +1550,97 @@
     try { localStorage.setItem('marginalia-session', email); } catch (e) {}
   }
 
+  async function activateAuthenticatedApp(user, session) {
+    const v2 = window.MarginaliaV2;
+    const legacyStorageKey = 'marginalia-projects-v3';
+    const migrationMarkerKey = 'marginalia-projects-v3-migrated';
+    const accountStorageKey = `${legacyStorageKey}:user:${user.id}`;
+    v2.clearPendingSync();
+    v2.setCloudReady(false);
+    v2.setAccessToken(session.access_token);
+
+    let localProjects;
+    let deletionStorageKey = accountStorageKey;
+    let deletionTombstones;
+    try {
+      const accountData = localStorage.getItem(accountStorageKey);
+      const migrationComplete = localStorage.getItem(migrationMarkerKey);
+      if (accountData !== null) {
+        localProjects = normalizeProjects(JSON.parse(accountData));
+      } else if (!migrationComplete) {
+        deletionStorageKey = legacyStorageKey;
+        const legacyData = localStorage.getItem(legacyStorageKey);
+        localProjects = normalizeProjects(legacyData ? JSON.parse(legacyData) : []);
+      } else {
+        localProjects = [];
+      }
+      deletionTombstones = readProjectDeletionTombstones(deletionStorageKey);
+      localProjects = filterProjectsForPendingDeletions(localProjects, deletionTombstones);
+    } catch (error) {
+      v2.setAccessToken('');
+      throw new Error(`Could not read this account's local library: ${error.message}`);
+    }
+
+    let remoteProjects = [];
+    let cloudLoaded = true;
+    try {
+      remoteProjects = filterProjectsForPendingDeletions(await v2.loadProjects(), deletionTombstones);
+      v2.setCloudReady(true);
+    } catch (error) {
+      v2.setCloudReady(false);
+      v2.setAccessToken('');
+      cloudLoaded = false;
+      setSaveStatus('dirty', `Offline: showing this account's local library. Supabase could not load: ${error.message}`);
+    }
+
+    projects = normalizeProjects(v2.mergeProjectLists(localProjects, remoteProjects));
+    activeStorageKey = accountStorageKey;
+    try {
+      localStorage.setItem(accountStorageKey, JSON.stringify(projects));
+      localStorage.setItem(`${accountStorageKey}:deletions`, JSON.stringify(deletionTombstones));
+      if (!localStorage.getItem(migrationMarkerKey)) {
+        localStorage.setItem(migrationMarkerKey, user.id);
+        localStorage.removeItem(legacyStorageKey);
+      }
+    } catch (error) {
+      v2.setCloudReady(false);
+      v2.setAccessToken('');
+      throw new Error(`Could not save the account-specific local library: ${error.message}`);
+    }
+
+    if (cloudLoaded) {
+      try {
+        await v2.syncProjects(projects);
+        clearProjectDeletionTombstones(accountStorageKey);
+        if (deletionStorageKey !== accountStorageKey) clearProjectDeletionTombstones(deletionStorageKey);
+      } catch (error) {
+        console.warn('Marginalia V2 initial sync needs attention:', error);
+        setSaveStatus('dirty', `Saved locally; Supabase sync needs attention: ${error.message}`);
+      }
+    }
+    renderLibrary();
+    repaint();
+    revealApp(user.email, session.access_token);
+  }
+
+  function activateLocalTestApp() {
+    const legacyStorageKey = 'marginalia-projects-v3';
+    window.MarginaliaV2.clearPendingSync();
+    window.MarginaliaV2.setCloudReady(false);
+    window.MarginaliaV2.setAccessToken('');
+    activeStorageKey = legacyStorageKey;
+    try {
+      const saved = localStorage.getItem(legacyStorageKey);
+      projects = normalizeProjects(saved ? JSON.parse(saved) : []);
+    } catch (error) {
+      showLoginError(`Could not read the local testing library: ${error.message}`);
+      return;
+    }
+    renderLibrary();
+    setSaveStatus('saved', 'Local testing mode; changes stay on this device');
+    revealApp('admin-test@local');
+  }
+
   loginSubmitBtn.addEventListener('click', async () => {
     const email = loginEmail.value.trim().toLowerCase();
     hideLoginError();
@@ -1560,21 +1651,25 @@
 
     loginSubmitBtn.disabled = true;
     loginSubmitBtn.textContent = authMode === 'login' ? 'Logging in...' : 'Creating account...';
-    const result = authMode === 'signup'
-      ? await supabaseClient.auth.signUp({ email, password: pass })
-      : await supabaseClient.auth.signInWithPassword({ email, password: pass });
-    loginSubmitBtn.disabled = false;
-    setAuthMode(authMode);
-
-    if (result.error) {
-      showLoginError(result.error.message);
-      return;
+    try {
+      const result = authMode === 'signup'
+        ? await supabaseClient.auth.signUp({ email, password: pass })
+        : await supabaseClient.auth.signInWithPassword({ email, password: pass });
+      if (result.error) {
+        showLoginError(result.error.message);
+        return;
+      }
+      if (!result.data.session) {
+        showLoginError('Account created. Check your email to confirm it, then log in.');
+        return;
+      }
+      await activateAuthenticatedApp(result.data.user, result.data.session);
+    } catch (error) {
+      showLoginError(error.message || 'Could not sign in. Please try again.');
+    } finally {
+      loginSubmitBtn.disabled = false;
+      setAuthMode(authMode);
     }
-    if (!result.data.session) {
-      showLoginError('Account created. Check your email to confirm it, then log in.');
-      return;
-    }
-    revealApp(result.data.user.email, result.data.session.access_token);
   });
   [loginEmail, loginPassword].forEach(el => el.addEventListener('keydown', (e) => { if (e.key === 'Enter') loginSubmitBtn.click(); }));
 
@@ -1594,7 +1689,7 @@
       newPasswordInput.value = '';
       confirmNewPasswordInput.value = '';
       const { data: { session } } = await supabaseClient.auth.getSession();
-      if (session) revealApp(session.user.email, session.access_token);
+      if (session) await activateAuthenticatedApp(session.user, session);
       else {
         setAuthMode('login');
         setAuthView('login');
@@ -1623,12 +1718,18 @@
     }
   });
 
-  document.getElementById('adminBypassBtn').addEventListener('click', () => revealApp('admin-test@local'));
+  document.getElementById('adminBypassBtn').addEventListener('click', activateLocalTestApp);
 
   document.getElementById('logoutBtn').addEventListener('click', async () => {
     await supabaseClient.auth.signOut();
+    window.MarginaliaV2.clearPendingSync();
+    window.MarginaliaV2.setCloudReady(false);
     window.MarginaliaV2.setAccessToken('');
     try { localStorage.removeItem('marginalia-session'); } catch (e) {}
+    activeStorageKey = 'marginalia-projects-v3';
+    activeProjectId = null;
+    projects = [];
+    renderLibrary();
     appRoot.classList.add('hidden');
     loginScreen.classList.remove('hidden');
     loginEmail.value = ''; loginPassword.value = '';
@@ -1653,7 +1754,15 @@
       loginScreen.classList.remove('hidden');
       appRoot.classList.add('hidden');
       setAuthView('update');
-    } else if (session) revealApp(session.user.email, session.access_token);
+    } else if (session) {
+      try {
+        await activateAuthenticatedApp(session.user, session);
+      } catch (error) {
+        loginScreen.classList.remove('hidden');
+        appRoot.classList.add('hidden');
+        showLoginError(error.message || 'Could not restore your account library.');
+      }
+    }
     else { loginScreen.classList.remove('hidden'); appRoot.classList.add('hidden'); }
   })();
 
@@ -1918,23 +2027,102 @@
     brainDumps: { title: 'Brain Dumps', icon: '&#9729;', nameLabel: 'Brain dump title', desc: 'Loose thoughts, half-formed ideas, and anything you want to keep close while the story takes shape.' },
   };
 
-  let projects = [];
-  try { const saved = localStorage.getItem('marginalia-projects-v3'); if (saved) projects = JSON.parse(saved); } catch (e) { projects = []; }
-  // migrate older books from one brain dump into the reusable brainDumps collection
-  projects.forEach(p => {
-    catOrder.forEach(c => { if (!Array.isArray(p[c])) p[c] = []; });
-    if (p.brainDump && p.brainDumps.length === 0) {
-      p.brainDumps.push({ _id: 'e_' + Date.now() + Math.random().toString(36).slice(2,6), name: 'Brain Dump', details: p.brainDump });
+  const legacyProjectStorageKey = 'marginalia-projects-v3';
+  let activeStorageKey = legacyProjectStorageKey;
+  function normalizeProjects(projectList) {
+    if (!Array.isArray(projectList)) throw new Error('The saved project list is not valid.');
+    projectList.forEach((project, projectIndex) => {
+      if (!project || typeof project !== 'object') throw new Error(`Saved project ${projectIndex + 1} is not valid.`);
+      catOrder.forEach(category => {
+        if (!Array.isArray(project[category])) project[category] = [];
+      });
+      if (project.brainDump && project.brainDumps.length === 0) {
+        project.brainDumps.push({
+          _id: 'legacy-brain-dump-' + project.id,
+          name: 'Brain Dump',
+          details: project.brainDump,
+        });
+      }
+      catOrder.forEach(category => project[category].forEach(entry => {
+        if (!entry || typeof entry !== 'object') throw new Error(`A saved entry in ${category} is not valid.`);
+        if (!entry._id) entry._id = 'e_' + Date.now() + Math.random().toString(36).slice(2, 8);
+      }));
+      if (project.lastOpened === undefined) project.lastOpened = null;
+      if (!project.theme) project.theme = 'rainy';
+      if (!Number.isFinite(Number(project.updated))) project.updated = Date.now();
+    });
+    return projectList;
+  }
+  function readProjectDeletionTombstones(storageKey) {
+    const saved = localStorage.getItem(`${storageKey}:deletions`);
+    const tombstones = saved ? JSON.parse(saved) : {};
+    if (!tombstones || typeof tombstones !== 'object' || Array.isArray(tombstones)) {
+      throw new Error('The saved deletion queue is not valid.');
     }
-    if (p.lastOpened === undefined) p.lastOpened = null;
-    if (!p.theme) p.theme = 'rainy';
-  });
-  function saveProjects() {
-    setSaveStatus('saving', 'Saving changes...');
+    return {
+      projects: Array.isArray(tombstones.projects) ? tombstones.projects.filter(id => typeof id === 'string') : [],
+      entries: Array.isArray(tombstones.entries)
+        ? tombstones.entries.filter(item => item && typeof item.projectId === 'string' && typeof item.category === 'string' && typeof item.entryId === 'string')
+        : [],
+    };
+  }
+  function filterProjectsForPendingDeletions(projectList, tombstones) {
+    const deletedProjects = new Set(tombstones.projects);
+    const deletedEntries = new Set(tombstones.entries.map(item => `${item.projectId}:${item.category}:${item.entryId}`));
+    return projectList.filter(project => !deletedProjects.has(project.id)).map(project => {
+      const filtered = { ...project };
+      catOrder.forEach(category => {
+        filtered[category] = (project[category] || []).filter(entry =>
+          !deletedEntries.has(`${project.id}:${category}:${entry._id}`));
+      });
+      return filtered;
+    });
+  }
+  function persistProjectDeletion(projectId, category, entryId) {
     try {
-      localStorage.setItem('marginalia-projects-v3', JSON.stringify(projects));
-      if (window.MarginaliaV2) window.MarginaliaV2.scheduleProjectSync(projects.find(project => project.id === activeProjectId));
-      markSaved();
+      const tombstones = readProjectDeletionTombstones(activeStorageKey);
+      if (category === 'projects') {
+        if (!tombstones.projects.includes(projectId)) tombstones.projects.push(projectId);
+      } else if (!tombstones.entries.some(item =>
+        item.projectId === projectId && item.category === category && item.entryId === entryId)) {
+        tombstones.entries.push({ projectId, category, entryId });
+      }
+      localStorage.setItem(`${activeStorageKey}:deletions`, JSON.stringify(tombstones));
+      return true;
+    } catch (error) {
+      setSaveStatus('dirty', `Could not safely queue this deletion: ${error.message}`);
+      return false;
+    }
+  }
+  function clearProjectDeletionTombstones(storageKey) {
+    try {
+      localStorage.removeItem(`${storageKey}:deletions`);
+    } catch (error) {
+      console.warn('Marginalia could not clear synced deletion markers:', error);
+    }
+  }
+  let projects = [];
+  try {
+    const saved = localStorage.getItem(legacyProjectStorageKey);
+    if (saved) projects = normalizeProjects(JSON.parse(saved));
+  } catch (error) {
+    console.error('Marginalia could not load the local project list:', error);
+  }
+  function saveProjects(syncCloud = true) {
+    if (syncCloud) setSaveStatus('saving', 'Saving changes locally...');
+    try {
+      const activeProject = projects.find(project => project.id === activeProjectId);
+      if (syncCloud && activeProject) activeProject.syncUpdated = Date.now();
+      localStorage.setItem(activeStorageKey, JSON.stringify(projects));
+      const v2 = window.MarginaliaV2;
+      if (syncCloud && v2 && v2.config.cloudReady && v2.config.accessToken) {
+        v2.scheduleProjectsSync(projects);
+        setSaveStatus('saving', 'Saved locally; cloud sync pending');
+      } else if (syncCloud && activeStorageKey.includes(':user:')) {
+        setSaveStatus('dirty', 'Saved locally; cloud sync is unavailable. Sign in again while online to sync.');
+      } else if (syncCloud) {
+        markSaved();
+      }
       return true;
     } catch (e) {
       setSaveStatus('dirty', 'Could not save changes');
@@ -2216,7 +2404,7 @@
   function markLastOpened(cat, entryId, name) {
     const p = projects.find(x => x.id === activeProjectId); if (!p) return;
     p.lastOpened = { cat, entryId: entryId || null, name, ts: Date.now() };
-    p.updated = Date.now(); saveProjects();
+    p.updated = Date.now(); saveProjects(false);
   }
 
   // ================= Nav subitems =================
@@ -2820,6 +3008,8 @@
   document.getElementById('entrySaveBtn').addEventListener('click', () => performEntrySave(true));
   entryDeleteBtn.addEventListener('click', () => {
     const p = projects.find(x => x.id === activeProjectId); if (!p || entryIndex === null) return;
+    const entry = p[entryCat][entryIndex];
+    if (!persistProjectDeletion(p.id, entryCat, entry._id)) return;
     p[entryCat].splice(entryIndex, 1);
     saveProjects();
     closeWriterModal();
@@ -3260,9 +3450,7 @@
     const target = p.characters[charIndex];
     const name = target && target.name ? target.name : 'this character';
     if (!window.confirm(`Delete "${name}"? This cannot be undone.`)) return;
-    if (window.MarginaliaV2 && window.MarginaliaV2.deleteProjectEntity) {
-      window.MarginaliaV2.deleteProjectEntity(p, 'characters', target && target._id ? target._id : null);
-    }
+    if (!persistProjectDeletion(p.id, 'characters', target._id)) return;
     p.characters.splice(charIndex, 1);
     saveProjects();
     characterOverlay.classList.remove('show');
@@ -3381,9 +3569,7 @@
     const target = p.locations[locIndex];
     const name = target && target.name ? target.name : 'this location';
     if (!window.confirm(`Delete "${name}"? This cannot be undone.`)) return;
-    if (window.MarginaliaV2 && window.MarginaliaV2.deleteProjectEntity) {
-      window.MarginaliaV2.deleteProjectEntity(p, 'locations', target && target._id ? target._id : null);
-    }
+    if (!persistProjectDeletion(p.id, 'locations', target._id)) return;
     p.locations.splice(locIndex, 1);
     saveProjects();
     locationOverlay.classList.remove('show');
@@ -3500,9 +3686,7 @@
     const target = p.items[itemIndex];
     const name = target && target.name ? target.name : 'this item';
     if (!window.confirm(`Delete "${name}"? This cannot be undone.`)) return;
-    if (window.MarginaliaV2 && window.MarginaliaV2.deleteProjectEntity) {
-      window.MarginaliaV2.deleteProjectEntity(p, 'items', target && target._id ? target._id : null);
-    }
+    if (!persistProjectDeletion(p.id, 'items', target._id)) return;
     p.items.splice(itemIndex, 1);
     saveProjects();
     itemOverlay.classList.remove('show');
@@ -3635,9 +3819,7 @@
     const target = p.lore[loreIndex];
     const name = target && target.name ? target.name : 'this lore card';
     if (!window.confirm(`Delete "${name}"? This cannot be undone.`)) return;
-    if (window.MarginaliaV2 && window.MarginaliaV2.deleteProjectEntity) {
-      window.MarginaliaV2.deleteProjectEntity(p, 'lore', target && target._id ? target._id : null);
-    }
+    if (!persistProjectDeletion(p.id, 'lore', target._id)) return;
     p.lore.splice(loreIndex, 1);
     saveProjects();
     loreOverlay.classList.remove('show');
@@ -3672,9 +3854,7 @@
   deleteStep2Overlay.addEventListener('click', (e) => { if (e.target === deleteStep2Overlay) deleteStep2Overlay.classList.remove('show'); });
   document.getElementById('deleteStep2Confirm').addEventListener('click', () => {
     const targetProject = projects.find(x => x.id === deleteTargetId);
-    if (window.MarginaliaV2 && window.MarginaliaV2.deleteProjectBook) {
-      window.MarginaliaV2.deleteProjectBook(deleteTargetId);
-    }
+    if (!targetProject || !persistProjectDeletion(targetProject.id, 'projects', targetProject.id)) return;
     projects = projects.filter(x => x.id !== deleteTargetId);
     saveProjects();
     deleteStep2Overlay.classList.remove('show');

@@ -1,5 +1,14 @@
 const assert = require('node:assert/strict');
-const { documentPayload, entityPayload, buildSuggestionAuditPayload, dedupeSuggestions, summarizeSuggestionStatuses } = require('./v2-adapter.js');
+const {
+  documentPayload,
+  entityPayload,
+  buildSuggestionAuditPayload,
+  dedupeSuggestions,
+  summarizeSuggestionStatuses,
+  remoteProjectToLocal,
+  mergeProjectLists,
+  syncProjects,
+} = require('./v2-adapter.js');
 
 const lorePayload = entityPayload({ id: 'project-123' }, 'book-123', 'lore', {
   _id: 'lore-456',
@@ -112,4 +121,199 @@ const summary = summarizeSuggestionStatuses([
 ]);
 assert.deepEqual(summary, { total: 5, pending: 2, approved: 2, rejected: 1 });
 
-console.log('v2-adapter audit payload, deduplication, and review-history tests passed');
+const restored = remoteProjectToLocal(
+  {
+    client_key: 'project-remote',
+    title: 'Remote book',
+    theme: 'noir',
+    cover_url: 'cover-data',
+    brain_dump: 'Loose note',
+    updated_at: '2026-10-15T12:00:00.000Z',
+  },
+  [
+    {
+      id: 'doc-1',
+      client_key: 'project-remote:chapters:chapter-1',
+      kind: 'chapter',
+      title: 'Chapter One',
+      content_html: '<p>Opening</p>',
+      word_goal: 1200,
+    },
+  ],
+  [
+    {
+      id: 'entity-1',
+      client_key: 'project-remote:lore:lore-1',
+      kind: 'lore',
+      name: 'The Ashen Order',
+      data: { _id: 'lore-1', loreType: 'faction' },
+    },
+  ],
+);
+assert.equal(restored.id, 'project-remote');
+assert.equal(restored.cover, 'cover-data');
+assert.equal(restored.brainDump, 'Loose note');
+assert.equal(restored.chapters[0]._id, 'chapter-1');
+assert.equal(restored.chapters[0].wordGoal, 1200);
+assert.equal(restored.lore[0].loreType, 'faction');
+
+const merged = mergeProjectLists(
+  [{
+    id: 'same-project',
+    title: 'Local edit',
+    updated: 200,
+    chapters: [{ _id: 'shared', name: 'Local chapter' }, { _id: 'local-only', name: 'Local only' }],
+  }],
+  [{
+    id: 'same-project',
+    title: 'Remote edit',
+    updated: 300,
+    chapters: [{ _id: 'shared', name: 'Remote chapter' }, { _id: 'remote-only', name: 'Remote only' }],
+  }],
+);
+assert.equal(merged[0].title, 'Remote edit');
+assert.equal(merged[0].chapters.find(entry => entry._id === 'shared').name, 'Remote chapter');
+assert.deepEqual(merged[0].chapters.map(entry => entry._id), ['shared', 'remote-only', 'local-only']);
+
+(async () => {
+  const originalFetch = global.fetch;
+  const requests = [];
+  const statuses = [];
+  global.MarginaliaV2.setStatusListener(state => statuses.push(state));
+  global.MarginaliaV2.config.supabaseUrl = 'https://example.supabase.co';
+  global.MarginaliaV2.config.anonKey = 'public-test-key';
+  global.MarginaliaV2.setAccessToken('test-access-token');
+  global.MarginaliaV2.setCloudReady(true);
+  global.fetch = async (input, options = {}) => {
+    const url = new URL(input);
+    const method = options.method || 'GET';
+    if (method === 'GET' && url.pathname.endsWith('/books')) {
+      return Response.json([{
+        id: 'book-loaded',
+        client_key: 'project-loaded',
+        title: 'Loaded book',
+        theme: 'rainy',
+        cover_url: null,
+        brain_dump: '',
+        updated_at: '2026-10-15T12:00:00.000Z',
+      }]);
+    }
+    if (method === 'GET' && url.pathname.endsWith('/documents')) {
+      return Response.json([{
+        id: 'document-loaded',
+        client_key: 'project-loaded:scenes:scene-1',
+        kind: 'scene',
+        title: 'Loaded scene',
+        content_html: '<p>Remote writing</p>',
+        word_goal: null,
+      }]);
+    }
+    if (method === 'GET' && url.pathname.endsWith('/entities')) {
+      return Response.json([{
+        id: 'entity-loaded',
+        client_key: 'project-loaded:characters:character-1',
+        kind: 'character',
+        name: 'Mira',
+        data: { _id: 'character-1', nickname: 'Mi' },
+      }]);
+    }
+    throw new Error(`Unexpected load request: ${method} ${url.pathname}`);
+  };
+
+  const cloudLibrary = await global.MarginaliaV2.loadProjects();
+  assert.equal(cloudLibrary.length, 1);
+  assert.equal(cloudLibrary[0].scenes[0].details, '<p>Remote writing</p>');
+  assert.equal(cloudLibrary[0].characters[0].nickname, 'Mi');
+  global.MarginaliaV2.setCloudReady(false);
+  await assert.rejects(syncProjects([]), /backend is not configured/);
+  global.MarginaliaV2.setCloudReady(true);
+
+  global.fetch = async (input, options = {}) => {
+    const url = new URL(input);
+    const method = options.method || 'GET';
+    assert.equal(options.headers.Authorization, 'Bearer test-access-token');
+    requests.push({ method, pathname: url.pathname, query: url.searchParams, body: options.body ? JSON.parse(options.body) : null });
+
+    if (method === 'POST' && url.pathname.endsWith('/books')) {
+      return new Response(JSON.stringify([{ id: 'book-remote', client_key: 'project-sync' }]), { status: 201 });
+    }
+    if (method === 'POST') return new Response(null, { status: 204 });
+    if (method === 'GET' && url.pathname.endsWith('/entities')) {
+      return Response.json([{ id: 'entity-kept', client_key: 'project-sync:characters:character-1' }, { id: 'entity-stale', client_key: 'old-entity' }]);
+    }
+    if (method === 'GET' && url.pathname.endsWith('/documents')) {
+      return Response.json([{ id: 'document-stale', client_key: 'old-document' }]);
+    }
+    if (method === 'GET' && url.pathname.endsWith('/books')) {
+      return Response.json([{ id: 'book-remote', client_key: 'project-sync' }, { id: 'book-stale', client_key: 'removed-project' }]);
+    }
+    if (method === 'DELETE') return new Response(null, { status: 204 });
+    throw new Error(`Unexpected test request: ${method} ${url.pathname}`);
+  };
+
+  try {
+    await syncProjects([{
+      id: 'project-sync',
+      title: 'Sync test',
+      updated: Date.now(),
+      characters: [{ _id: 'character-1', name: 'Mira' }],
+      chapters: [{ _id: 'chapter-1', name: 'Opening', details: '<p>Start</p>' }],
+    }]);
+    assert.ok(requests.some(request => request.method === 'DELETE' && request.pathname.endsWith('/entities')));
+    assert.ok(requests.some(request => request.method === 'DELETE' && request.pathname.endsWith('/documents')));
+    assert.ok(requests.some(request => request.method === 'DELETE' && request.pathname.endsWith('/books')));
+    assert.equal(statuses.at(-1), 'synced');
+
+    statuses.length = 0;
+    global.fetch = async (input, options = {}) => {
+      const url = new URL(input);
+      const method = options.method || 'GET';
+      if (method === 'POST' && url.pathname.endsWith('/books')) {
+        return Response.json([{ id: 'book-failure', client_key: 'project-failure' }], { status: 201 });
+      }
+      if (method === 'POST' && url.pathname.endsWith('/entities')) {
+        return new Response('write rejected', { status: 403 });
+      }
+      throw new Error(`Unexpected failure-test request: ${method} ${url.pathname}`);
+    };
+    await assert.rejects(
+      syncProjects([{
+        id: 'project-failure',
+        updated: Date.now(),
+        characters: [{ _id: 'character-1', name: 'Mira' }],
+      }]),
+      /V2 request failed: 403/,
+    );
+    assert.ok(!statuses.includes('synced'));
+
+    let completeBookUpsert;
+    global.fetch = async (input, options = {}) => {
+      assert.equal(options.headers.Authorization, 'Bearer test-access-token');
+      return new Promise(resolve => {
+      completeBookUpsert = () => resolve(Response.json([{ id: 'book-old-session', client_key: 'project-old-session' }], { status: 201 }));
+      });
+    };
+    const accountSwitchSync = syncProjects([{
+      id: 'project-old-session',
+      updated: Date.now(),
+      characters: [{ _id: 'character-1', name: 'Mira' }],
+    }]);
+    await new Promise(resolve => setTimeout(resolve, 0));
+    assert.equal(typeof completeBookUpsert, 'function');
+    global.MarginaliaV2.setAccessToken('different-account-token');
+    completeBookUpsert();
+    await assert.rejects(accountSwitchSync, /signed-in account changed during sync/);
+  } finally {
+    global.fetch = originalFetch;
+    global.MarginaliaV2.setAccessToken('');
+    global.MarginaliaV2.setCloudReady(false);
+    global.MarginaliaV2.config.supabaseUrl = '';
+    global.MarginaliaV2.config.anonKey = '';
+    global.MarginaliaV2.setStatusListener(null);
+  }
+
+  console.log('v2-adapter restoration, merge, sync, and deletion tests passed');
+})().catch(error => {
+  console.error(error);
+  process.exitCode = 1;
+});
