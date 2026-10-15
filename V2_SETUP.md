@@ -10,7 +10,7 @@ This folder defines the first authenticated persistence boundary for Marginalia.
 4. The browser can send a saved chapter or scene and book context to `analyze-scene`.
 5. The Edge Function verifies the signed-in user and book ownership.
 6. The function returns structured suggestions. It never edits an entity directly.
-7. The Memory Review panel lets the writer approve or reject suggestions locally. Durable review-decision sync is still pending.
+7. The Memory Review panel loads the passage's saved suggestion history and writes approval/rejection decisions to Supabase before applying them locally.
 
 The previous unscoped `marginalia-projects-v3` local library is assigned to the first account that signs in after this update. It is then stored under that account's key and removed from the unscoped key, so later accounts on the same browser do not inherit it. Keep a backup before testing account changes if the browser contains valuable writing.
 
@@ -61,7 +61,7 @@ The analyzer uses deterministic mock logic, not a language model. It recognizes 
 ## Local setup
 
 1. Create a Supabase project.
-2. For a new database, apply `supabase/schema.sql` in the SQL editor. For the existing project, apply `supabase/migrations/004_lore_entity_kind.sql` after migrations 002 and 003.
+2. For a new database, apply `supabase/schema.sql` in the SQL editor. For the existing project, apply migrations 002 through 005 in order; if migrations 002, 003, and 004 are already applied, apply `supabase/migrations/005_persist_memory_review.sql`.
 3. Deploy `supabase/functions/analyze-scene/index.ts` together with its imported `mock-helpers.mjs` file.
 4. Add the project URL and anon key through environment-specific configuration, never hardcoded secrets.
 5. Verify authenticated sync and row-level-security behavior with separate user accounts before using real writing data.

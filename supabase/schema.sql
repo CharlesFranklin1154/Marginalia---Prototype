@@ -38,6 +38,7 @@ create table public.entities (
 
 create table public.ai_suggestions (
   id uuid primary key default gen_random_uuid(),
+  client_key text not null,
   book_id uuid not null references public.books(id) on delete cascade,
   document_id uuid references public.documents(id) on delete set null,
   entity_id uuid references public.entities(id) on delete set null,
@@ -48,6 +49,7 @@ create table public.ai_suggestions (
   evidence text not null,
   source_line integer not null default 1,
   confidence numeric(4,3) not null check (confidence >= 0 and confidence <= 1),
+  metadata jsonb not null default '{}'::jsonb,
   status text not null default 'pending' check (status in ('pending', 'approved', 'rejected')),
   created_at timestamptz not null default now(),
   reviewed_at timestamptz
@@ -56,6 +58,7 @@ create table public.ai_suggestions (
 create index documents_book_id_idx on public.documents(book_id);
 create index entities_book_id_idx on public.entities(book_id);
 create index ai_suggestions_book_id_status_idx on public.ai_suggestions(book_id, status);
+create unique index ai_suggestions_client_key_idx on public.ai_suggestions(client_key);
 
 alter table public.books enable row level security;
 alter table public.documents enable row level security;

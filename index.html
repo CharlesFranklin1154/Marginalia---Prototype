@@ -2834,15 +2834,7 @@
       reject.type = 'button';
       reject.disabled = status !== 'pending';
       reject.textContent = status === 'rejected' ? 'Rejected' : 'Reject';
-      reject.addEventListener('click', () => {
-        suggestion.status = 'rejected';
-        if (isCreate) {
-          entryAiSuggestions.forEach((related) => {
-            if (related.candidateKey === suggestion.candidateKey && related.status === 'pending') related.status = 'rejected';
-          });
-        }
-        renderEntryAiReview();
-      });
+      reject.addEventListener('click', () => rejectEntrySuggestion(index));
       actions.append(approve, reject);
       card.appendChild(actions);
       entryAiReviewList.appendChild(card);
@@ -2866,7 +2858,42 @@
     });
   }
 
-  function approveEntrySuggestion(index, card, button) {
+  async function saveEntryReviewDecisions(suggestions, status) {
+    const p = projects.find(x => x.id === activeProjectId);
+    const entry = p && entryIndex !== null && p[entryCat] && p[entryCat][entryIndex];
+    if (!p || !entry) return false;
+    entryAiReviewStatus.textContent = 'Saving review decision...';
+    entryAiReviewList.querySelectorAll('button').forEach(button => { button.disabled = true; });
+    try {
+      const savedRows = await window.MarginaliaV2.persistSuggestionStatuses(p, {
+        category: entryCat,
+        _id: entry._id,
+      }, suggestions, status);
+      const rowsByKey = new Map(savedRows.map(row => [row.client_key, row]));
+      suggestions.forEach(suggestion => {
+        const row = rowsByKey.get(suggestion.client_key);
+        suggestion.status = status;
+        suggestion.reviewed_at = row && row.reviewed_at || new Date().toISOString();
+      });
+      return true;
+    } catch (error) {
+      renderEntryAiReview();
+      entryAiReviewStatus.textContent = `Decision not saved: ${error.message}`;
+      return false;
+    }
+  }
+
+  async function rejectEntrySuggestion(index) {
+    const suggestion = entryAiSuggestions[index];
+    if (!suggestion) return;
+    const related = suggestion.type === 'entity_create'
+      ? entryAiSuggestions.filter(item => item.candidateKey === suggestion.candidateKey && item.status === 'pending')
+      : [suggestion];
+    if (!await saveEntryReviewDecisions(related, 'rejected')) return;
+    renderEntryAiReview();
+  }
+
+  async function approveEntrySuggestion(index, card, button) {
     const suggestion = entryAiSuggestions[index];
     const p = projects.find(x => x.id === activeProjectId);
     if (!suggestion || !p) return;
@@ -2874,6 +2901,7 @@
       const category = ({ character: 'characters', location: 'locations', item: 'items', lore: 'lore' })[suggestion.entityKind];
       const name = String(suggestion.entityName || suggestion.value || '').trim();
       if (!category || !name) return;
+      if (!await saveEntryReviewDecisions([suggestion], 'approved')) return;
       p[category] = Array.isArray(p[category]) ? p[category] : [];
       let entity = p[category].find(entry => String(entry.name || '').trim().toLowerCase() === name.toLowerCase());
       if (!entity) {
@@ -2898,7 +2926,6 @@
         sourceLine: suggestion.sourceLine,
         sourceText: suggestion.sourceText || suggestion.evidence,
       });
-      suggestion.status = 'approved';
       p.updated = Date.now();
       saveProjects();
       renderCategoryCounts(p);
@@ -2913,8 +2940,8 @@
     const entryId = parts.slice(2).join(':');
     const entity = (p[kind] || []).find(entry => entry._id === entryId);
     if (!entity) return;
+    if (!await saveEntryReviewDecisions([suggestion], 'approved')) return;
     if (suggestionAlreadyApplied(entity, suggestion)) {
-      suggestion.status = 'approved';
       p.updated = Date.now();
       saveProjects();
       renderWriterSidebar();
@@ -2936,7 +2963,6 @@
       sourceLine: suggestion.sourceLine,
       sourceText: suggestion.sourceText || suggestion.evidence,
     });
-    suggestion.status = 'approved';
     p.updated = Date.now();
     saveProjects();
     renderWriterSidebar();

@@ -8,6 +8,8 @@ const {
   remoteProjectToLocal,
   mergeProjectLists,
   syncProjects,
+  buildSuggestionAuditPayload: buildAuditPayload,
+  stableSuggestionKey,
 } = require('./v2-adapter.js');
 
 const lorePayload = entityPayload({ id: 'project-123' }, 'book-123', 'lore', {
@@ -43,7 +45,10 @@ const documentWithoutGoal = documentPayload({ id: 'project-123' }, 'book-123', '
 });
 assert.equal(documentWithoutGoal.word_goal, null);
 
-const payload = buildSuggestionAuditPayload({
+const payload = buildAuditPayload({
+  projectId: 'project-123',
+  category: 'chapters',
+  entry: { _id: 'chapter-456', name: 'First Chapter' },
   bookId: 'book-123',
   documentId: 'doc-456',
   entityId: 'entity-789',
@@ -70,6 +75,15 @@ assert.equal(payload.evidence, 'Mira touched the scar above her left eye.');
 assert.equal(payload.source_line, 7);
 assert.equal(payload.confidence, 0.91);
 assert.equal(payload.status, 'pending');
+assert.equal(payload.client_key, stableSuggestionKey('project-123', 'chapters', 'chapter-456', {
+  type: 'character_update',
+  entityId: 'entity-789',
+  field: 'physical',
+  value: 'Mira has a scar above her left eye.',
+  evidence: 'Mira touched the scar above her left eye.',
+  sourceLine: 7,
+}));
+assert.equal(payload.metadata.sourceLabel, 'First Chapter');
 
 const suggestions = [
   {
@@ -184,6 +198,7 @@ assert.deepEqual(merged[0].chapters.map(entry => entry._id), ['shared', 'remote-
   global.MarginaliaV2.config.anonKey = 'public-test-key';
   global.MarginaliaV2.setAccessToken('test-access-token');
   global.MarginaliaV2.setCloudReady(true);
+  const originalWindow = global.window;
   global.fetch = async (input, options = {}) => {
     const url = new URL(input);
     const method = options.method || 'GET';
@@ -303,8 +318,109 @@ assert.deepEqual(merged[0].chapters.map(entry => entry._id), ['shared', 'remote-
     global.MarginaliaV2.setAccessToken('different-account-token');
     completeBookUpsert();
     await assert.rejects(accountSwitchSync, /signed-in account changed during sync/);
+
+    global.MarginaliaV2.setAccessToken('test-access-token');
+    const suggestionStore = new Map();
+    global.window = {
+      marginaliaSupabaseClient: {
+        functions: {
+          invoke: async () => ({
+            data: {
+              suggestions: [{
+                id: 'mock-suggestion',
+                type: 'character_update',
+                entityId: 'entity-ai',
+                field: 'physical',
+                operation: 'append',
+                value: 'A scar above the left eye.',
+                evidence: 'Mira touched the scar above her left eye.',
+                sourceText: 'Mira touched the scar above her left eye.',
+                sourceLine: 2,
+                confidence: 0.91,
+                status: 'pending',
+              }],
+              analysis: { mode: 'mock', entitiesChecked: 1 },
+            },
+            error: null,
+          }),
+        },
+      },
+    };
+    global.fetch = async (input, options = {}) => {
+      const url = new URL(input);
+      const method = options.method || 'GET';
+      const path = url.pathname;
+      if (method === 'POST' && path.endsWith('/books')) {
+        return Response.json([{ id: 'book-ai', client_key: 'project-ai' }], { status: 201 });
+      }
+      if (method === 'POST' && path.endsWith('/documents')) return new Response(null, { status: 204 });
+      if (method === 'POST' && path.endsWith('/entities')) return new Response(null, { status: 204 });
+      if (method === 'POST' && path.endsWith('/ai_suggestions')) {
+        for (const row of JSON.parse(options.body)) {
+          if (!suggestionStore.has(row.client_key)) suggestionStore.set(row.client_key, { ...row, id: 'audit-' + suggestionStore.size, reviewed_at: null });
+        }
+        return new Response(null, { status: 204 });
+      }
+      if (method === 'PATCH' && path.endsWith('/ai_suggestions')) {
+        const match = url.searchParams.get('client_key') || '';
+        const keys = Array.from(match.matchAll(/"([^"]+)"/g), result => result[1]);
+        const patch = JSON.parse(options.body);
+        const rows = keys.map(key => {
+          const stored = suggestionStore.get(key);
+          if (!stored) return null;
+          Object.assign(stored, patch);
+          return { id: stored.id, client_key: key, status: stored.status, reviewed_at: stored.reviewed_at };
+        }).filter(Boolean);
+        return Response.json(rows);
+      }
+      if (method === 'GET' && path.endsWith('/books')) {
+        if (url.searchParams.has('client_key')) return Response.json([{ id: 'book-ai' }]);
+        return Response.json([{ id: 'book-ai', client_key: 'project-ai' }]);
+      }
+      if (method === 'GET' && path.endsWith('/documents')) {
+        if (url.searchParams.has('client_key')) return Response.json([{ id: 'document-ai', client_key: 'project-ai:chapters:chapter-ai' }]);
+        return Response.json([{ id: 'document-ai', client_key: 'project-ai:chapters:chapter-ai' }]);
+      }
+      if (method === 'GET' && path.endsWith('/entities')) {
+        return Response.json([{
+          id: 'entity-ai',
+          client_key: 'project-ai:characters:character-ai',
+          kind: 'character',
+          name: 'Mira',
+          data: { _id: 'character-ai' },
+        }]);
+      }
+      if (method === 'GET' && path.endsWith('/ai_suggestions')) return Response.json(Array.from(suggestionStore.values()));
+      if (method === 'DELETE') return new Response(null, { status: 204 });
+      throw new Error(`Unexpected review test request: ${method} ${path}`);
+    };
+
+    const reviewProject = {
+      id: 'project-ai',
+      title: 'Review test',
+      updated: Date.now(),
+      characters: [{ _id: 'character-ai', name: 'Mira' }],
+      chapters: [{ _id: 'chapter-ai', name: 'First Chapter', details: '<p>Mira touched a scar.</p>' }],
+      scenes: [],
+      brainDumps: [],
+      locations: [],
+      items: [],
+      lore: [],
+    };
+    const reviewEntry = { ...reviewProject.chapters[0], category: 'chapters' };
+    const firstReview = await global.MarginaliaV2.analyzeProjectEntry(reviewProject, reviewEntry);
+    assert.equal(firstReview.suggestions[0].status, 'pending');
+    assert.ok(firstReview.suggestions[0].client_key);
+    await global.MarginaliaV2.persistSuggestionStatuses(reviewProject, reviewEntry, firstReview.suggestions, 'approved');
+    const afterApproval = await global.MarginaliaV2.analyzeProjectEntry(reviewProject, reviewEntry);
+    assert.equal(afterApproval.suggestions[0].status, 'approved');
+    await global.MarginaliaV2.persistSuggestionStatuses(reviewProject, reviewEntry, afterApproval.suggestions, 'rejected');
+    const afterRejection = await global.MarginaliaV2.analyzeProjectEntry(reviewProject, reviewEntry);
+    assert.equal(afterRejection.suggestions[0].status, 'rejected');
   } finally {
     global.fetch = originalFetch;
+    if (originalWindow === undefined) delete global.window;
+    else global.window = originalWindow;
     global.MarginaliaV2.setAccessToken('');
     global.MarginaliaV2.setCloudReady(false);
     global.MarginaliaV2.config.supabaseUrl = '';

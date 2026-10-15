@@ -277,7 +277,10 @@
   function buildSuggestionAuditPayload({ projectId, category, entry, bookId, documentId, entityId, suggestion }) {
     const sourceText = String(suggestion && (suggestion.sourceText || suggestion.evidence) || '');
     return {
-      client_key: stableSuggestionKey(projectId, category, entry && entry._id, suggestion),
+      client_key: stableSuggestionKey(projectId, category, entry && entry._id, {
+        ...suggestion,
+        entityId: entityId || suggestion && suggestion.entityId,
+      }),
       book_id: bookId,
       document_id: documentId || null,
       entity_id: entityId || null,
@@ -437,6 +440,7 @@
       ? await request(`documents?book_id=eq.${encodeURIComponent(bookId)}&client_key=eq.${encodeURIComponent(remoteDocumentClientKey)}&select=id,client_key`, undefined, context)
       : [];
     const documentId = documentMatch && documentMatch[0] ? documentMatch[0].id : null;
+    if (!documentId) throw new Error('This passage has not synced to Supabase yet.');
     const result = await analyzeScene({
       bookId,
       text: htmlToPlainText(entry.details),
@@ -446,6 +450,7 @@
       const entity = entityById.get(suggestion.entityId);
       return {
         ...suggestion,
+        sourceText: suggestion.sourceText || suggestion.evidence || '',
         localEntityKey: suggestion.candidateKey
           ? `candidate:${suggestion.candidateKey}`
           : entity && entity.client_key ? entity.client_key : null,
@@ -456,23 +461,92 @@
       };
     }));
     const suggestionsForAudit = result.suggestions.map(suggestion => buildSuggestionAuditPayload({
+      projectId: project.id,
+      category: entry.category,
+      entry,
       bookId,
       documentId,
       entityId: suggestion.entityId || null,
       suggestion,
     }));
     if (suggestionsForAudit.length) {
-      try {
-        await request('ai_suggestions', {
-          method: 'POST',
-          headers: { Prefer: 'return=minimal' },
-          body: JSON.stringify(suggestionsForAudit),
-        }, context);
-      } catch (error) {
-        console.warn('Marginalia V2 suggestion audit deferred:', error);
-      }
+      await request('ai_suggestions?on_conflict=client_key', {
+        method: 'POST',
+        headers: { Prefer: 'resolution=ignore-duplicates,return=minimal' },
+        body: JSON.stringify(suggestionsForAudit),
+      }, context);
     }
-    return result;
+    const savedSuggestions = await request(
+      `ai_suggestions?document_id=eq.${encodeURIComponent(documentId)}&select=id,client_key,entity_id,type,field,operation,value,evidence,source_line,confidence,status,metadata,reviewed_at&order=created_at.asc`,
+      undefined,
+      context,
+    );
+    return {
+      ...result,
+      suggestions: savedSuggestions.map(saved => {
+        const metadata = saved.metadata && typeof saved.metadata === 'object' ? saved.metadata : {};
+        const entity = entityById.get(saved.entity_id);
+        const candidateKey = metadata.candidateKey || null;
+        const categoryByKind = { character: 'characters', location: 'locations', item: 'items', lore: 'lore' };
+        const candidateCategory = categoryByKind[metadata.entityKind];
+        const candidateEntity = candidateCategory && (project[candidateCategory] || []).find(item =>
+          String(item.name || '').trim().toLowerCase() === String(metadata.entityName || '').trim().toLowerCase());
+        return {
+          id: saved.id,
+          client_key: saved.client_key,
+          entityId: saved.entity_id,
+          type: saved.type,
+          field: saved.field,
+          operation: saved.operation,
+          value: saved.value,
+          evidence: saved.evidence,
+          sourceText: metadata.sourceText || saved.evidence,
+          sourceLine: Number(saved.source_line) || 1,
+          confidence: Number(saved.confidence),
+          status: saved.status,
+          reviewed_at: saved.reviewed_at,
+          candidateKey,
+          entityName: metadata.entityName || entity && entity.name || null,
+          entityKind: metadata.entityKind || entity && entity.kind || null,
+          localEntityKey: candidateKey
+            ? candidateEntity ? `${project.id}:${candidateCategory}:${candidateEntity._id}` : `candidate:${candidateKey}`
+            : entity && entity.client_key || null,
+          sourceDocumentKey: metadata.sourceDocumentKey || remoteDocumentClientKey,
+          sourceLabel: metadata.sourceLabel || entry.sourceLabel || entry.name || 'Untitled entry',
+        };
+      }),
+    };
+  }
+
+  async function persistSuggestionStatuses(project, entry, suggestions, status) {
+    if (!isConfigured()) throw new Error('Supabase is not available for saving this review decision.');
+    if (!['approved', 'rejected'].includes(status)) throw new Error('Unsupported Memory Review status.');
+    if (!project || !project.id || !entry || !entry.category || !entry._id) {
+      throw new Error('The source passage is no longer available. Reopen it and check memory again.');
+    }
+    const suggestionList = Array.isArray(suggestions) ? suggestions : [];
+    const suggestionKeys = suggestionList.map(suggestion => suggestion && suggestion.client_key).filter(Boolean);
+    if (!suggestionKeys.length || suggestionKeys.length !== suggestionList.length) {
+      throw new Error('These suggestions have no saved review records. Check memory again while online.');
+    }
+    const expectedPrefix = `${project.id}:${entry.category}:${entry._id}:`;
+    if (suggestionKeys.some(key => !key.startsWith(expectedPrefix))) {
+      throw new Error('A suggestion does not belong to the current passage. Check memory again before reviewing.');
+    }
+    const context = captureAuthContext();
+    const rows = await request(
+      `ai_suggestions?client_key=in.${encodeURIComponent(`(${suggestionKeys.map(key => `"${key}"`).join(',')})`)}&select=id,client_key,status,reviewed_at`,
+      {
+        method: 'PATCH',
+        headers: { Prefer: 'return=representation' },
+        body: JSON.stringify({ status, reviewed_at: new Date().toISOString() }),
+      },
+      context,
+    );
+    if (!rows || rows.length !== suggestionKeys.length) {
+      throw new Error('The review decision was not saved for every suggestion. Check that they still exist, then retry.');
+    }
+    return rows;
   }
 
   const root = typeof window !== 'undefined' ? window : globalThis;
@@ -490,9 +564,11 @@
     mergeProjectLists,
     analyzeScene,
     analyzeProjectEntry,
+    persistSuggestionStatuses,
     documentPayload,
     entityPayload,
     buildSuggestionAuditPayload,
+    stableSuggestionKey,
     dedupeSuggestions,
     summarizeSuggestionStatuses,
   };
@@ -502,6 +578,7 @@
       documentPayload,
       entityPayload,
       buildSuggestionAuditPayload,
+      stableSuggestionKey,
       dedupeSuggestions,
       summarizeSuggestionStatuses,
       remoteProjectToLocal,
@@ -509,6 +586,7 @@
       loadProjects,
       syncProject,
       syncProjects,
+      persistSuggestionStatuses,
       setCloudReady,
       clearPendingSync,
     };
