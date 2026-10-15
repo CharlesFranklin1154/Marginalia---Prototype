@@ -225,22 +225,6 @@
     return merged;
   }
 
-  function buildSuggestionAuditPayload({ bookId, documentId, entityId, suggestion }) {
-    return {
-      book_id: bookId,
-      document_id: documentId || null,
-      entity_id: entityId || null,
-      type: suggestion && suggestion.type ? suggestion.type : 'memory_update',
-      field: suggestion && suggestion.field ? suggestion.field : '',
-      operation: suggestion && suggestion.operation ? suggestion.operation : 'append',
-      value: suggestion && suggestion.value ? String(suggestion.value) : '',
-      evidence: suggestion && (suggestion.evidence || suggestion.sourceText) ? String(suggestion.evidence || suggestion.sourceText) : '',
-      source_line: Number(suggestion && suggestion.sourceLine ? suggestion.sourceLine : 1),
-      confidence: Number(suggestion && suggestion.confidence != null ? suggestion.confidence : 0.5),
-      status: suggestion && suggestion.status ? suggestion.status : 'pending',
-    };
-  }
-
   function dedupeSuggestions(suggestions) {
     const seen = new Set();
     return (Array.isArray(suggestions) ? suggestions : []).filter((suggestion) => {
@@ -268,6 +252,52 @@
       else summary.pending += 1;
     }
     return summary;
+  }
+
+  function stableSuggestionKey(projectId, category, entryId, suggestion) {
+    const identity = [
+      suggestion && suggestion.entityId ? suggestion.entityId : suggestion && suggestion.candidateKey ? suggestion.candidateKey : 'anonymous',
+      suggestion && suggestion.type ? suggestion.type : '',
+      suggestion && suggestion.field ? suggestion.field : '',
+      suggestion && (suggestion.evidence || suggestion.sourceText) ? String(suggestion.evidence || suggestion.sourceText).trim() : '',
+      suggestion && suggestion.sourceLine != null ? String(suggestion.sourceLine) : '1',
+      suggestion && suggestion.value ? String(suggestion.value).trim() : '',
+    ].join('|').toLowerCase();
+    let first = 2166136261;
+    let second = 5381;
+    for (let index = 0; index < identity.length; index += 1) {
+      const code = identity.charCodeAt(index);
+      first = Math.imul(first ^ code, 16777619);
+      second = Math.imul(second, 33) ^ code;
+    }
+    const hash = `${(first >>> 0).toString(16)}${(second >>> 0).toString(16)}`;
+    return `${projectId}:${category}:${entryId}:${hash}`;
+  }
+
+  function buildSuggestionAuditPayload({ projectId, category, entry, bookId, documentId, entityId, suggestion }) {
+    const sourceText = String(suggestion && (suggestion.sourceText || suggestion.evidence) || '');
+    return {
+      client_key: stableSuggestionKey(projectId, category, entry && entry._id, suggestion),
+      book_id: bookId,
+      document_id: documentId || null,
+      entity_id: entityId || null,
+      type: suggestion && suggestion.type ? suggestion.type : 'memory_update',
+      field: suggestion && suggestion.field ? suggestion.field : '',
+      operation: suggestion && suggestion.operation ? suggestion.operation : 'append',
+      value: suggestion && suggestion.value ? String(suggestion.value) : '',
+      evidence: String(suggestion && (suggestion.evidence || suggestion.sourceText) || ''),
+      source_line: Number(suggestion && suggestion.sourceLine ? suggestion.sourceLine : 1),
+      confidence: Number(suggestion && suggestion.confidence != null ? suggestion.confidence : 0.5),
+      status: suggestion && suggestion.status ? suggestion.status : 'pending',
+      metadata: {
+        candidateKey: suggestion && suggestion.candidateKey || null,
+        entityKind: suggestion && suggestion.entityKind || null,
+        entityName: suggestion && suggestion.entityName || null,
+        sourceText,
+        sourceLabel: suggestion && suggestion.sourceLabel || entry && entry.sourceLabel || entry && entry.name || 'Untitled entry',
+        sourceDocumentKey: suggestion && suggestion.sourceDocumentKey || null,
+      },
+    };
   }
 
   async function deleteStaleRows(table, bookId, keptKeys, context) {
