@@ -25,6 +25,7 @@ Marginalia is a calm, literary writing workbench that lets the writer do the wri
 `index.html` currently includes:
 
 - Supabase Auth sign-in, sign-up, session restore, logout, and token refresh
+- Password reset requests and recovery-link password updates through Supabase Auth
 - Existing testing/admin bypass
 - Supabase publishable key and project URL configuration
 - Global save status banner
@@ -121,18 +122,20 @@ The current source line is calculated from preserved rich-text line breaks. The 
 - `V2_SETUP.md` and older handoff sections may still describe completed review and adapter work as future work; keep them aligned when next editing setup documentation.
 - Supabase Edge Function files show Deno/import diagnostics in the normal VS Code checker because the local editor is not configured with the Deno runtime. Supabase deployment is the authoritative check for that function.
 - The mock login/testing bypass should eventually be removed or clearly isolated before real public use.
+- Password recovery requires the deployed Marginalia URL to be allowed in Supabase Auth URL Configuration; live email delivery and password updates still need testing.
 - The old `books.brain_dump` column remains for compatibility; new Brain Dumps are individual `documents` rows with `kind = 'brain_dump'`.
 - The latest editor styles and rendered-row gutter have passed syntax/regression checks but have not yet been confirmed in the deployed site or visually smoke-tested across wrapping, font sizes, and mobile widths.
 
 ## Immediate Next Steps
 
-1. Publish the latest `index.html` editor changes to GitHub Pages if they have not been pushed yet.
-2. Smoke-test the writer in a browser: wrapped paragraphs, headings, Title, Code Block, Verse, font-size changes, line-number alignment, goal feedback, and mobile layout.
-3. Set and save a word goal, then verify the matching `documents.word_goal` value in Supabase. The migration has been applied; the live write has not yet been confirmed.
-4. Continue the review-panel UX polish and test pending, approved, and rejected history states.
-5. Tighten deterministic analyzer heuristics where real writing exposes attribution or evidence edge cases; keep tests focused on confirmed examples.
-6. Before public use, remove or clearly isolate the testing bypass and review auth/data access.
-7. Treat a real AI provider as future work; establish budget limits, throttling, chunking, and settings before enabling paid model calls.
+1. Publish the latest `index.html` changes to GitHub Pages if they have not been pushed yet.
+2. Add the deployed Marginalia URL under Supabase Authentication > URL Configuration > Redirect URLs, then test requesting a password reset and setting a new password.
+3. Smoke-test the writer in a browser: wrapped paragraphs, headings, Title, Code Block, Verse, font-size changes, line-number alignment, goal feedback, and mobile layout.
+4. Set and save a word goal, then verify the matching `documents.word_goal` value in Supabase. The migration has been applied; the live write has not yet been confirmed.
+5. Continue the review-panel UX polish and test pending, approved, and rejected history states.
+6. Tighten deterministic analyzer heuristics where real writing exposes attribution or evidence edge cases; keep tests focused on confirmed examples.
+7. Before public use, remove or clearly isolate the testing bypass and review auth/data access.
+8. Treat a real AI provider as future work; establish budget limits, throttling, chunking, and settings before enabling paid model calls.
 
 ## Safe Working Process
 
@@ -161,6 +164,12 @@ Useful restart prompt:
 - Added `word_goal` to `schema.sql` and the V2 document payload, with adapter regression coverage; the user confirmed migration `003_document_word_goal.sql` ran successfully in Supabase.
 - Validated with inline-script syntax checks, `node supabase/v2-adapter.test.js`, `node supabase/functions/analyze-scene/mock-helpers.test.mjs`, and `git diff --check`.
 - No Edge Function redeploy is needed for the latest frontend/editor changes. GitHub Pages deployment of the most recent editor refinements remains unconfirmed.
+
+## Work completed on 2026-10-15
+
+- Added a Supabase Auth password reset request flow, recovery-link password form, password confirmation, and cancel path.
+- Live recovery email and password update remain unverified until the deployed app URL is allowed in Supabase Auth Redirect URLs.
+- Validated the local recovery screens, embedded-script syntax, adapter and analyzer tests, editor diagnostics, and `git diff --check`.
 
 ## Next unchecked task
 

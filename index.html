@@ -616,8 +616,14 @@
 
   .login-error { font-size: 0.8rem; color: var(--rust-deep); margin: 4px 0 10px; display: none; }
   .login-error.show { display: block; }
+  .login-notice { display: none; font-size: 0.8rem; color: var(--moss); margin: 4px 0 10px; line-height: 1.5; }
+  .login-notice.show { display: block; }
 
   .login-submit { width: 100%; margin-top: 6px; padding: 11px; font-size: 0.9rem; }
+  .login-link { display: block; margin: 12px auto 0; padding: 0; border: 0; background: none; color: var(--slate-deep); font: inherit; font-size: 0.78rem; text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+  .login-link:hover { color: var(--ink); }
+  .login-recovery-copy { margin-bottom: 20px; text-align: center; color: var(--ink-soft); font-size: 0.84rem; line-height: 1.5; }
+  .login-card [hidden] { display: none !important; }
 
   .login-divider { display: flex; align-items: center; gap: 10px; margin: 26px 0 18px; color: var(--ink-faint); font-size: 0.72rem; }
   .login-divider::before, .login-divider::after { content: ''; flex: 1; height: 1px; background: var(--line); }
@@ -641,27 +647,45 @@
       <div class="login-brand">Marginalia</div>
       <div class="login-sub">Write the story. Let the margins remember it.</div>
 
-      <div class="login-tabs">
+      <div class="login-tabs" id="loginTabs">
         <div class="login-tab active" id="tabLogin">Log in</div>
         <div class="login-tab" id="tabSignup">Create account</div>
       </div>
 
       <div class="login-error" id="loginError"></div>
+      <div class="login-notice" id="loginNotice" role="status" aria-live="polite"></div>
+      <div class="login-recovery-copy" id="passwordRequestCopy" hidden>Enter your account email and we will send a password reset link.</div>
 
-      <div class="login-field">
+      <div class="login-field" id="loginEmailField">
         <label for="loginEmail">Email</label>
         <input id="loginEmail" type="email" placeholder="you@example.com" autocomplete="username">
       </div>
-      <div class="login-field">
+      <div class="login-field" id="loginPasswordField">
         <label for="loginPassword">Password</label>
         <input id="loginPassword" type="password" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;" autocomplete="current-password">
       </div>
 
       <button class="btn primary login-submit" id="loginSubmitBtn" type="button">Log in</button>
+      <button class="login-link" id="forgotPasswordBtn" type="button">Forgot password?</button>
+      <button class="login-link" id="backToLoginBtn" type="button" hidden>Back to log in</button>
 
-      <div class="login-divider">FOR TESTING</div>
+      <div class="login-recovery" id="passwordRecoveryPanel" hidden>
+        <div class="login-recovery-copy">Choose a new password for your Marginalia account.</div>
+        <div class="login-field">
+          <label for="newPassword">New password</label>
+          <input id="newPassword" type="password" autocomplete="new-password" minlength="8">
+        </div>
+        <div class="login-field">
+          <label for="confirmNewPassword">Confirm new password</label>
+          <input id="confirmNewPassword" type="password" autocomplete="new-password" minlength="8">
+        </div>
+        <button class="btn primary login-submit" id="saveNewPasswordBtn" type="button">Update password</button>
+        <button class="login-link" id="cancelPasswordRecoveryBtn" type="button">Back to log in</button>
+      </div>
 
-      <div class="admin-bypass-box">
+      <div class="login-divider" id="loginDivider">FOR TESTING</div>
+
+      <div class="admin-bypass-box" id="adminBypassBox">
         <button class="btn ghost" id="adminBypassBtn" type="button">Continue as Admin (skip login)</button>
         <div class="admin-note">Temporary while we design &mdash; this button and the plain-text login below will be removed before real users touch this.</div>
       </div>
@@ -1336,29 +1360,89 @@
   const loginScreen = document.getElementById('loginScreen');
   const appRoot = document.getElementById('appRoot');
   const loginError = document.getElementById('loginError');
+  const loginNotice = document.getElementById('loginNotice');
   const loginEmail = document.getElementById('loginEmail');
   const loginPassword = document.getElementById('loginPassword');
+  const loginTabs = document.getElementById('loginTabs');
+  const loginEmailField = document.getElementById('loginEmailField');
+  const loginPasswordField = document.getElementById('loginPasswordField');
   const tabLogin = document.getElementById('tabLogin');
   const tabSignup = document.getElementById('tabSignup');
   const loginSubmitBtn = document.getElementById('loginSubmitBtn');
+  const forgotPasswordBtn = document.getElementById('forgotPasswordBtn');
+  const backToLoginBtn = document.getElementById('backToLoginBtn');
+  const passwordRequestCopy = document.getElementById('passwordRequestCopy');
+  const passwordRecoveryPanel = document.getElementById('passwordRecoveryPanel');
+  const newPasswordInput = document.getElementById('newPassword');
+  const confirmNewPasswordInput = document.getElementById('confirmNewPassword');
+  const saveNewPasswordBtn = document.getElementById('saveNewPasswordBtn');
+  const cancelPasswordRecoveryBtn = document.getElementById('cancelPasswordRecoveryBtn');
+  const loginDivider = document.getElementById('loginDivider');
+  const adminBypassBox = document.getElementById('adminBypassBox');
   const sessionEmail = document.getElementById('sessionEmail');
+  const passwordRecoveryFromUrl = new URLSearchParams(window.location.hash.slice(1)).get('type') === 'recovery';
+  let passwordRecoveryEvent = false;
 
   function isValidEmail(v) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v); }
 
   let authMode = 'login'; // 'login' | 'signup'
+  let authView = 'login'; // 'login' | 'request' | 'update'
   function setAuthMode(mode) {
     authMode = mode;
     tabLogin.classList.toggle('active', mode === 'login');
     tabSignup.classList.toggle('active', mode === 'signup');
     loginSubmitBtn.textContent = mode === 'login' ? 'Log in' : 'Create account';
     loginPassword.setAttribute('autocomplete', mode === 'login' ? 'current-password' : 'new-password');
+    forgotPasswordBtn.hidden = mode !== 'login' || authView !== 'login';
     hideLoginError();
   }
-  tabLogin.addEventListener('click', () => setAuthMode('login'));
-  tabSignup.addEventListener('click', () => setAuthMode('signup'));
+  function setAuthView(view) {
+    authView = view;
+    loginTabs.hidden = view !== 'login';
+    loginEmailField.hidden = view === 'update';
+    loginPasswordField.hidden = view !== 'login';
+    loginSubmitBtn.hidden = view === 'update';
+    forgotPasswordBtn.hidden = view !== 'login' || authMode !== 'login';
+    backToLoginBtn.hidden = view !== 'request';
+    passwordRequestCopy.hidden = view !== 'request';
+    passwordRecoveryPanel.hidden = view !== 'update';
+    loginDivider.hidden = view !== 'login';
+    adminBypassBox.hidden = view !== 'login';
+    if (view === 'request') loginSubmitBtn.textContent = 'Send reset link';
+    else if (view === 'login') loginSubmitBtn.textContent = authMode === 'login' ? 'Log in' : 'Create account';
+    hideLoginError();
+    hideLoginNotice();
+  }
+  tabLogin.addEventListener('click', () => { setAuthMode('login'); setAuthView('login'); });
+  tabSignup.addEventListener('click', () => { setAuthMode('signup'); setAuthView('login'); });
+  forgotPasswordBtn.addEventListener('click', () => setAuthView('request'));
+  backToLoginBtn.addEventListener('click', () => { setAuthMode('login'); setAuthView('login'); });
 
-  function showLoginError(msg) { loginError.textContent = msg; loginError.classList.add('show'); }
+  function showLoginError(msg) { hideLoginNotice(); loginError.textContent = msg; loginError.classList.add('show'); }
   function hideLoginError() { loginError.classList.remove('show'); }
+  function showLoginNotice(msg) { hideLoginError(); loginNotice.textContent = msg; loginNotice.classList.add('show'); }
+  function hideLoginNotice() { loginNotice.classList.remove('show'); }
+
+  async function requestPasswordReset(email) {
+    if (!['http:', 'https:'].includes(window.location.protocol)) {
+      showLoginError('Password reset needs the published Marginalia website. Open that site and request a new link there.');
+      return;
+    }
+    const redirectUrl = new URL(window.location.href);
+    redirectUrl.hash = '';
+    loginSubmitBtn.disabled = true;
+    loginSubmitBtn.textContent = 'Sending...';
+    try {
+      const { error } = await supabaseClient.auth.resetPasswordForEmail(email, { redirectTo: redirectUrl.toString() });
+      if (error) showLoginError(error.message);
+      else showLoginNotice('If an account exists for that email, a password reset link is on its way.');
+    } catch (error) {
+      showLoginError(error.message || 'Could not send a password reset link. Try again.');
+    } finally {
+      loginSubmitBtn.disabled = false;
+      if (authView === 'request') loginSubmitBtn.textContent = 'Send reset link';
+    }
+  }
 
   function revealApp(email, accessToken) {
     loginScreen.classList.add('hidden');
@@ -1370,9 +1454,10 @@
 
   loginSubmitBtn.addEventListener('click', async () => {
     const email = loginEmail.value.trim().toLowerCase();
-    const pass = loginPassword.value;
     hideLoginError();
     if (!isValidEmail(email)) { showLoginError('Enter a valid email address.'); return; }
+    if (authView === 'request') { await requestPasswordReset(email); return; }
+    const pass = loginPassword.value;
     if (!pass) { showLoginError('Enter a password.'); return; }
 
     loginSubmitBtn.disabled = true;
@@ -1395,6 +1480,51 @@
   });
   [loginEmail, loginPassword].forEach(el => el.addEventListener('keydown', (e) => { if (e.key === 'Enter') loginSubmitBtn.click(); }));
 
+  saveNewPasswordBtn.addEventListener('click', async () => {
+    const newPassword = newPasswordInput.value;
+    if (newPassword.length < 8) { showLoginError('Choose a password with at least 8 characters.'); return; }
+    if (newPassword !== confirmNewPasswordInput.value) { showLoginError('Those passwords do not match.'); return; }
+    hideLoginError();
+    saveNewPasswordBtn.disabled = true;
+    saveNewPasswordBtn.textContent = 'Updating...';
+    try {
+      const { error } = await supabaseClient.auth.updateUser({ password: newPassword });
+      if (error) {
+        showLoginError(error.message);
+        return;
+      }
+      newPasswordInput.value = '';
+      confirmNewPasswordInput.value = '';
+      const { data: { session } } = await supabaseClient.auth.getSession();
+      if (session) revealApp(session.user.email, session.access_token);
+      else {
+        setAuthMode('login');
+        setAuthView('login');
+        showLoginNotice('Password updated. Log in with your new password.');
+      }
+    } catch (error) {
+      showLoginError(error.message || 'Could not update your password. Request a new reset link and try again.');
+    } finally {
+      saveNewPasswordBtn.disabled = false;
+      saveNewPasswordBtn.textContent = 'Update password';
+    }
+  });
+  [newPasswordInput, confirmNewPasswordInput].forEach(input => input.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') saveNewPasswordBtn.click();
+  }));
+  cancelPasswordRecoveryBtn.addEventListener('click', async () => {
+    try {
+      await supabaseClient.auth.signOut();
+    } catch (error) {
+      console.warn('Marginalia password recovery sign-out deferred:', error);
+    } finally {
+      newPasswordInput.value = '';
+      confirmNewPasswordInput.value = '';
+      setAuthMode('login');
+      setAuthView('login');
+    }
+  });
+
   document.getElementById('adminBypassBtn').addEventListener('click', () => revealApp('admin-test@local'));
 
   document.getElementById('logoutBtn').addEventListener('click', async () => {
@@ -1407,15 +1537,27 @@
     setAuthMode('login');
   });
 
-  // Restore the Supabase session on load.
+  // Recovery links create a temporary session that must stay on the password form.
+  supabaseClient.auth.onAuthStateChange((event, session) => {
+    window.MarginaliaV2.setAccessToken(session ? session.access_token : '');
+    if (event === 'PASSWORD_RECOVERY') {
+      passwordRecoveryEvent = true;
+      loginScreen.classList.remove('hidden');
+      appRoot.classList.add('hidden');
+      setAuthView('update');
+    }
+  });
+
+  // Restore the Supabase session on load unless it came from a password recovery link.
   (async function checkSession() {
     const { data: { session } } = await supabaseClient.auth.getSession();
-    if (session) revealApp(session.user.email, session.access_token);
+    if (passwordRecoveryFromUrl || passwordRecoveryEvent) {
+      loginScreen.classList.remove('hidden');
+      appRoot.classList.add('hidden');
+      setAuthView('update');
+    } else if (session) revealApp(session.user.email, session.access_token);
     else { loginScreen.classList.remove('hidden'); appRoot.classList.add('hidden'); }
   })();
-  supabaseClient.auth.onAuthStateChange((_event, session) => {
-    window.MarginaliaV2.setAccessToken(session ? session.access_token : '');
-  });
 
 
   // ================= Themes =================
