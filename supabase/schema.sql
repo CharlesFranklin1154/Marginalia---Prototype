@@ -29,7 +29,7 @@ create table public.entities (
   id uuid primary key default gen_random_uuid(),
   client_key text not null unique,
   book_id uuid not null references public.books(id) on delete cascade,
-  kind text not null check (kind in ('character', 'location', 'item')),
+  kind text not null check (kind in ('character', 'location', 'item', 'lore')),
   name text not null,
   data jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now(),

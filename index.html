@@ -330,9 +330,10 @@
   .rich-editor.source-focus { outline: 2px solid var(--moss); outline-offset: -2px; }
   .ai-review-panel { display: none; margin-top: 14px; padding: 14px; border: 1px solid var(--paper-edge); border-radius: 8px; background: var(--bg); }
   .ai-review-panel.show { display: block; }
-  .ai-review-header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 9px; }
+  .ai-review-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 9px; }
   .ai-review-title { font-family: var(--font-serif); color: var(--ink); font-size: 0.95rem; }
   .ai-review-status { color: var(--ink-faint); font-size: 0.75rem; }
+  .ai-review-close { flex: 0 0 auto; padding: 2px 8px; line-height: 1; }
   .ai-review-list { display: flex; flex-direction: column; gap: 8px; }
   .ai-suggestion { padding: 10px 11px; border: 1px solid var(--paper-edge); border-radius: 6px; background: var(--paper); }
   .ai-suggestion-text { color: var(--ink-soft); font-size: 0.8rem; line-height: 1.5; }
@@ -718,6 +719,7 @@
         <div class="nav-subitem" data-cat="characters"><span class="sicon">&#9737;</span><span class="nav-text">Characters</span></div>
         <div class="nav-subitem" data-cat="locations"><span class="sicon">&#8982;</span><span class="nav-text">Locations</span></div>
         <div class="nav-subitem" data-cat="items"><span class="sicon">&#9670;</span><span class="nav-text">Items</span></div>
+        <div class="nav-subitem" data-cat="lore"><span class="sicon">&#10022;</span><span class="nav-text">Lore</span></div>
         <div class="nav-subitem" data-brain="1"><span class="sicon">&#9729;</span><span class="nav-text">Brain Dump</span></div>
       </div>
     </div>
@@ -818,6 +820,10 @@
         <div class="cat-card" data-cat="items">
           <div class="cat-icon">&#9670;</div>
           <div><div class="cat-name">Add an Item</div><div class="cat-count" data-count="items">0 items</div></div>
+        </div>
+        <div class="cat-card" data-cat="lore">
+          <div class="cat-icon">&#10022;</div>
+          <div><div class="cat-name">Add a Lore Card</div><div class="cat-count" data-count="lore">0 lore cards</div></div>
         </div>
         <div class="cat-card" data-cat="brainDumps">
           <div class="cat-icon">&#9729;</div>
@@ -969,6 +975,7 @@
             <button class="chip" data-filter="characters" type="button">Characters</button>
             <button class="chip" data-filter="locations" type="button">Locations</button>
             <button class="chip" data-filter="items" type="button">Items</button>
+            <button class="chip" data-filter="lore" type="button">Lore</button>
           </div>
           <div class="writer-entity-list" id="writerEntityList"></div>
         </aside>
@@ -978,6 +985,7 @@
         <div class="ai-review-header">
           <span class="ai-review-title">Memory review</span>
           <span class="ai-review-status" id="entryAiReviewStatus"></span>
+          <button class="btn ghost ai-review-close" id="entryAiReviewCloseBtn" type="button" aria-label="Close memory review" title="Close">&times;</button>
         </div>
         <div class="ai-review-list" id="entryAiReviewList"></div>
         <div class="ai-review-history" id="entryAiReviewHistory"></div>
@@ -1012,6 +1020,11 @@
       <div class="field">
         <label for="charName">Character Name</label>
         <input id="charName" type="text" placeholder="e.g. Mira Voss">
+      </div>
+
+      <div class="field">
+        <label for="charNickname">Nickname / Other Names</label>
+        <input id="charNickname" type="text" placeholder="Names this character is also called, such as Cal">
       </div>
 
       <div class="field-row">
@@ -1248,6 +1261,91 @@
   </div>
   <input type="file" accept="image/*" multiple class="hidden-file" id="itemImageFileInput">
 
+  <!-- Lore card template -->
+  <div class="overlay editor-page" id="loreOverlay">
+    <div class="modal wide template-page">
+      <h2 id="loreModalTitle">New lore card</h2>
+
+      <div class="field">
+        <label>Reference images <span style="color:var(--ink-faint); font-weight:400;">(optional; images are resized before saving)</span></label>
+        <div class="char-image-grid" id="loreImageGrid"></div>
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label for="loreName">Name</label>
+          <input id="loreName" type="text" placeholder="e.g. The Ashen Order">
+        </div>
+        <div class="field">
+          <label for="loreType">Kind of lore</label>
+          <select id="loreType">
+            <option value="concept">Concept / other</option>
+            <option value="faction">Faction / organization</option>
+            <option value="creature">Creature / species</option>
+            <option value="system">System / belief</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="loreOverview">Overview</label>
+        <textarea id="loreOverview" rows="4" placeholder="What is it? Describe the core idea, nature, or purpose."></textarea>
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label for="loreRole">Role in the story</label>
+          <textarea id="loreRole" rows="3" placeholder="Why it matters to the story, setting, or characters."></textarea>
+        </div>
+        <div class="field">
+          <label for="loreOrigin">Origin and history</label>
+          <textarea id="loreOrigin" rows="3" placeholder="How it began, changed, or came to be known."></textarea>
+        </div>
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label for="loreStructure">Members and structure</label>
+          <textarea id="loreStructure" rows="3" placeholder="Leaders, members, ranks, families, or how it is organized."></textarea>
+        </div>
+        <div class="field">
+          <label for="loreRules">Rules, abilities, or beliefs</label>
+          <textarea id="loreRules" rows="3" placeholder="How it works, what it allows or forbids, and what its members believe."></textarea>
+        </div>
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label for="loreTraits">Traits and behavior</label>
+          <textarea id="loreTraits" rows="3" placeholder="Appearance, habits, strengths, customs, or defining qualities."></textarea>
+        </div>
+        <div class="field">
+          <label for="loreLimits">Limits and weaknesses</label>
+          <textarea id="loreLimits" rows="3" placeholder="Costs, boundaries, vulnerabilities, or conditions that matter."></textarea>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="loreRelationships">Connections</label>
+        <textarea id="loreRelationships" rows="2" placeholder="Related people, places, factions, systems, or creatures."></textarea>
+      </div>
+
+      <div class="field">
+        <label for="loreNotes">Additional notes</label>
+        <textarea id="loreNotes" rows="3" placeholder="Anything else worth remembering. Add details gradually as the story reveals them."></textarea>
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn ghost" id="loreDeleteBtn" type="button" style="color:var(--rust-deep);">Delete</button>
+        <div class="modal-actions-right">
+          <button class="btn ghost" id="loreCancelBtn" type="button">Back</button>
+          <button class="btn primary" id="loreSaveBtn" type="button">Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <input type="file" accept="image/*" multiple class="hidden-file" id="loreImageFileInput">
+
   <!-- Image lightbox -->
   <div class="img-lightbox" id="imgLightbox">
     <img id="imgLightboxImg" src="" alt="Full size preview">
@@ -1256,7 +1354,7 @@
     <div class="modal small">
       <div class="danger-modal-icon">&#128683;</div>
       <h2 id="deleteStep1Title">Delete this book?</h2>
-      <p class="hint">Everything inside it &mdash; chapters, scenes, characters, locations, items, and the brain dump &mdash; will be deleted with it.</p>
+      <p class="hint">Everything inside it &mdash; chapters, scenes, characters, locations, items, lore cards, and brain dumps &mdash; will be deleted with it.</p>
       <div class="modal-actions">
         <span></span>
         <div class="modal-actions-right">
@@ -1287,7 +1385,7 @@
   <div class="overlay" id="aiSettingsOverlay">
     <div class="modal">
       <h2>AI Assist</h2>
-      <p class="hint">Choose how you'll want AI-suggested updates to characters, locations, and items to behave once real-time reading comprehension is wired up. For now this just saves your preference &mdash; it'll take effect once that piece is built.</p>
+      <p class="hint">Choose how you'll want AI-suggested updates to characters, locations, items, and lore cards to behave once real-time reading comprehension is wired up. For now this just saves your preference &mdash; it'll take effect once that piece is built.</p>
 
       <div class="ai-mode-options" id="aiModeOptions">
         <label class="ai-mode-option">
@@ -1809,13 +1907,14 @@
 
   // ================= Data =================
   const spineColors = ['#7C8B6F', '#5C7380', '#B08968', '#9B7E9B', '#7A8B99'];
-  const catOrder = ['chapters', 'scenes', 'characters', 'locations', 'items', 'brainDumps'];
+  const catOrder = ['chapters', 'scenes', 'characters', 'locations', 'items', 'lore', 'brainDumps'];
   const catConfig = {
     chapters:   { title: 'Chapters',   icon: '&#9776;', nameLabel: 'Chapter title', desc: 'The scenes and sections of your book, in whatever order helps you write.' },
     scenes:     { title: 'Scenes',     icon: '&#10086;', nameLabel: 'Scene title', desc: 'Smaller beats and moments &mdash; useful for planning before they settle into chapters.' },
     characters: { title: 'Characters', icon: '&#9737;', nameLabel: 'Character name', desc: 'Everyone who matters to the story, however minor.' },
     locations:  { title: 'Locations',  icon: '&#8982;', nameLabel: 'Location name', desc: 'The places your story happens in.' },
     items:      { title: 'Items',      icon: '&#9670;', nameLabel: 'Item name', desc: 'Objects worth tracking &mdash; a weapon, an heirloom, anything with weight.' },
+    lore:       { title: 'Lore Cards', icon: '&#10022;', nameLabel: 'Lore name', desc: 'Factions, creatures, systems, and ideas that shape your world.' },
     brainDumps: { title: 'Brain Dumps', icon: '&#9729;', nameLabel: 'Brain dump title', desc: 'Loose thoughts, half-formed ideas, and anything you want to keep close while the story takes shape.' },
   };
 
@@ -2182,7 +2281,8 @@
       if (cat === 'characters') {
         const thumb = entry.images && entry.images[0] ? `<div class="hub-entry-thumb" style="background-image:url('${entry.images[0]}')"></div>` : '';
         const snippet = entry.role || entry.personality || entry.goal || '';
-        card.innerHTML = `${thumb}<div class="hub-entry-name">${entry.name || 'Untitled'}</div><div class="hub-entry-snippet">${snippet ? snippet.replace(/</g,'&lt;') : '<span class="hub-entry-empty">No details yet.</span>'}</div>`;
+        const nickname = entry.nickname ? `<div class="hub-entry-snippet">Also known as ${escapeHtml(entry.nickname)}</div>` : '';
+        card.innerHTML = `${thumb}<div class="hub-entry-name">${escapeHtml(entry.name || 'Untitled')}</div>${nickname}<div class="hub-entry-snippet">${snippet ? snippet.replace(/</g,'&lt;') : '<span class="hub-entry-empty">No details yet.</span>'}</div>`;
       } else if (cat === 'locations') {
         const thumb = entry.images && entry.images[0] ? `<div class="hub-entry-thumb" style="background-image:url('${entry.images[0]}')"></div>` : '';
         const snippet = entry.role || entry.description || entry.location || '';
@@ -2191,6 +2291,11 @@
         const thumb = entry.images && entry.images[0] ? `<div class="hub-entry-thumb" style="background-image:url('${entry.images[0]}')"></div>` : '';
         const snippet = entry.point || entry.looks || entry.effects || '';
         card.innerHTML = `${thumb}<div class="hub-entry-name">${entry.name || 'Untitled'}</div><div class="hub-entry-snippet">${snippet ? snippet.replace(/</g,'&lt;') : '<span class="hub-entry-empty">No details yet.</span>'}</div>`;
+      } else if (cat === 'lore') {
+        const thumb = entry.images && entry.images[0] ? `<div class="hub-entry-thumb" style="background-image:url('${entry.images[0]}')"></div>` : '';
+        const snippet = entry.overview || entry.role || entry.rules || entry.traits || '';
+        const loreTypeLabel = ({ faction: 'Faction / organization', creature: 'Creature / species', system: 'System / belief', concept: 'Concept / other' })[entry.loreType] || 'Concept / other';
+        card.innerHTML = `${thumb}<div class="hub-entry-name">${escapeHtml(entry.name || 'Untitled')}</div><div class="hub-entry-snippet">${escapeHtml(loreTypeLabel)}${snippet ? `<br>${escapeHtml(snippet)}` : '<br><span class="hub-entry-empty">No details yet.</span>'}</div>`;
       } else {
         const plain = stripHtml(entry.details || '');
         card.innerHTML = `<div class="hub-entry-name">${entry.name || 'Untitled'}</div><div class="hub-entry-snippet">${plain ? plain.replace(/</g,'&lt;') : '<span class="hub-entry-empty">Nothing written yet.</span>'}</div>`;
@@ -2245,9 +2350,11 @@
   const entryAiReviewPanel = document.getElementById('entryAiReviewPanel');
   const entryAiReviewStatus = document.getElementById('entryAiReviewStatus');
   const entryAiReviewList = document.getElementById('entryAiReviewList');
+  const entryAiReviewCloseBtn = document.getElementById('entryAiReviewCloseBtn');
   let entryIndex = null;
   let entryCat = null;
   let entryAiSuggestions = [];
+  let entryAiEntitiesChecked = null;
   let pendingSourceHighlight = null;
 
   function getEntryPlainText() {
@@ -2366,6 +2473,7 @@
     if (cat === 'characters') { openCharacterModal(idx); return; }
     if (cat === 'locations') { openLocationModal(idx); return; }
     if (cat === 'items') { openItemModal(idx); return; }
+    if (cat === 'lore') { openLoreModal(idx); return; }
     entryCat = cat; entryIndex = idx;
     const cfg = catConfig[cat];
     entryNameInput.placeholder = 'Untitled ' + cfg.title.slice(0, -1).toLowerCase();
@@ -2387,6 +2495,7 @@
     closeWriterDrawer();
     renderWriterSidebar();
     entryAiSuggestions = [];
+    entryAiEntitiesChecked = null;
     entryAiReviewList.innerHTML = '';
     entryAiReviewStatus.textContent = '';
     entryAiReviewPanel.classList.remove('show');
@@ -2490,29 +2599,60 @@
     const summary = window.MarginaliaV2 && window.MarginaliaV2.summarizeSuggestionStatuses
       ? window.MarginaliaV2.summarizeSuggestionStatuses(entryAiSuggestions)
       : { total: entryAiSuggestions.length, pending: entryAiSuggestions.length, approved: 0, rejected: 0 };
-    const statusText = summary.total ? `${summary.total} ${summary.total === 1 ? 'suggestion' : 'suggestions'} · ${summary.pending} pending · ${summary.approved} approved · ${summary.rejected} rejected` : 'Nothing new found';
+    const statusText = summary.total
+      ? `${summary.total} ${summary.total === 1 ? 'suggestion' : 'suggestions'} · ${summary.pending} pending · ${summary.approved} approved · ${summary.rejected} rejected`
+      : entryAiEntitiesChecked === 0
+        ? 'No saved entities or new names matched'
+        : entryAiEntitiesChecked > 0
+          ? `Checked ${entryAiEntitiesChecked} saved entities; no details or new names matched`
+          : 'Nothing new found';
     entryAiReviewStatus.textContent = statusText;
     if (!entryAiSuggestions.length) {
-      entryAiReviewList.innerHTML = '<div class="writer-entity-empty">No proposed updates for this passage.</div>';
+      const emptyState = document.createElement('div');
+      emptyState.className = 'writer-entity-empty';
+      if (entryAiEntitiesChecked === 0) {
+        emptyState.textContent = 'No saved cards or recognizable new names were found in this passage. Try a clear name in context or add a card manually.';
+      } else if (entryAiEntitiesChecked > 0) {
+        emptyState.textContent = 'No supported details or new names matched. This prototype uses limited context patterns and may miss ambiguous mentions.';
+      } else {
+        emptyState.textContent = 'No proposed updates for this passage.';
+      }
+      entryAiReviewList.appendChild(emptyState);
       renderEntryAiReviewHistory();
       return;
     }
     entryAiSuggestions.forEach((suggestion, index) => {
       const card = document.createElement('div');
       card.className = 'ai-suggestion';
-      card.innerHTML = `<div class="ai-suggestion-text">Add to <b>${escapeHtml(suggestion.field)}</b>: ${escapeHtml(suggestion.value)}</div><div class="ai-suggestion-evidence">Evidence: ${escapeHtml(suggestion.evidence)}</div>`;
+      const isCreate = suggestion.type === 'entity_create';
+      const status = String(suggestion.status || 'pending').toLowerCase();
+      const waitingForCard = !isCreate && suggestion.candidateKey && String(suggestion.localEntityKey || '').startsWith('candidate:');
+      const targetName = suggestion.entityName || 'this entity';
+      const entityKindLabel = ({ character: 'character', location: 'location', item: 'item', lore: 'Lore' })[suggestion.entityKind] || 'entity';
+      const title = isCreate
+        ? `Create ${entityKindLabel} card for <b>${escapeHtml(suggestion.entityName || suggestion.value)}</b>`
+        : `Add to <b>${escapeHtml(targetName)}</b> in <b>${escapeHtml(suggestion.field)}</b>: ${escapeHtml(suggestion.value)}`;
+      card.innerHTML = `<div class="ai-suggestion-text">${title}</div><div class="ai-suggestion-evidence">Evidence: ${escapeHtml(suggestion.evidence)}</div>`;
       const actions = document.createElement('div');
       actions.className = 'ai-suggestion-actions';
       const approve = document.createElement('button');
-      approve.className = 'btn primary'; approve.type = 'button'; approve.textContent = 'Approve';
+      approve.className = 'btn primary';
+      approve.type = 'button';
+      approve.disabled = status !== 'pending' || waitingForCard;
+      approve.textContent = status === 'approved' ? 'Approved' : isCreate ? 'Add card' : waitingForCard ? 'Add card first' : 'Approve';
       approve.addEventListener('click', () => approveEntrySuggestion(index, card, approve));
       const reject = document.createElement('button');
-      reject.className = 'btn ghost'; reject.type = 'button'; reject.textContent = 'Reject';
+      reject.className = 'btn ghost';
+      reject.type = 'button';
+      reject.disabled = status !== 'pending';
+      reject.textContent = status === 'rejected' ? 'Rejected' : 'Reject';
       reject.addEventListener('click', () => {
         suggestion.status = 'rejected';
-        approve.disabled = true;
-        reject.disabled = true;
-        reject.textContent = 'Rejected';
+        if (isCreate) {
+          entryAiSuggestions.forEach((related) => {
+            if (related.candidateKey === suggestion.candidateKey && related.status === 'pending') related.status = 'rejected';
+          });
+        }
         renderEntryAiReview();
       });
       actions.append(approve, reject);
@@ -2530,7 +2670,7 @@
     if (normalizedValue && normalizedField && normalizedField.includes(normalizedValue)) return true;
     const sourceText = String(suggestion.sourceText || suggestion.evidence || '').trim();
     const sourceLine = Number(suggestion.sourceLine || 1);
-    return (Array.isArray(entity.provenance) || []).some(entry => {
+    return (Array.isArray(entity.provenance) ? entity.provenance : []).some(entry => {
       const sameField = String(entry.field || '') === String(suggestion.field || '');
       const sameSourceText = String(entry.sourceText || '').trim() === sourceText;
       const sameSourceLine = Number(entry.sourceLine || 1) === sourceLine;
@@ -2541,7 +2681,45 @@
   function approveEntrySuggestion(index, card, button) {
     const suggestion = entryAiSuggestions[index];
     const p = projects.find(x => x.id === activeProjectId);
-    if (!suggestion || !p || !suggestion.localEntityKey) return;
+    if (!suggestion || !p) return;
+    if (suggestion.type === 'entity_create') {
+      const category = ({ character: 'characters', location: 'locations', item: 'items', lore: 'lore' })[suggestion.entityKind];
+      const name = String(suggestion.entityName || suggestion.value || '').trim();
+      if (!category || !name) return;
+      p[category] = Array.isArray(p[category]) ? p[category] : [];
+      let entity = p[category].find(entry => String(entry.name || '').trim().toLowerCase() === name.toLowerCase());
+      if (!entity) {
+        entity = {
+          _id: 'e_' + Date.now() + Math.random().toString(36).slice(2, 6),
+          name,
+          images: [],
+          ...(category === 'lore' ? { loreType: suggestion.loreType || 'concept' } : {}),
+          provenance: [],
+        };
+        p[category].push(entity);
+      }
+      const localEntityKey = `${p.id}:${category}:${entity._id}`;
+      entryAiSuggestions.forEach((related) => {
+        if (related.candidateKey === suggestion.candidateKey) related.localEntityKey = localEntityKey;
+      });
+      entity.provenance = Array.isArray(entity.provenance) ? entity.provenance : [];
+      entity.provenance.push({
+        field: 'name',
+        sourceDocumentKey: suggestion.sourceDocumentKey,
+        sourceLabel: suggestion.sourceLabel,
+        sourceLine: suggestion.sourceLine,
+        sourceText: suggestion.sourceText || suggestion.evidence,
+      });
+      suggestion.status = 'approved';
+      p.updated = Date.now();
+      saveProjects();
+      renderCategoryCounts(p);
+      renderHubGrid(category, p);
+      renderWriterSidebar();
+      renderEntryAiReview();
+      return;
+    }
+    if (!suggestion.localEntityKey || suggestion.localEntityKey.startsWith('candidate:')) return;
     const parts = suggestion.localEntityKey.split(':');
     const kind = parts[1];
     const entryId = parts.slice(2).join(':');
@@ -2580,6 +2758,11 @@
     renderEntryAiReview();
   }
 
+  entryAiReviewCloseBtn.addEventListener('click', () => {
+    entryAiReviewPanel.classList.remove('show');
+    entryAnalyzeBtn.focus();
+  });
+
   entryAnalyzeBtn.addEventListener('click', async () => {
     const p = projects.find(x => x.id === activeProjectId);
     if (!p) return;
@@ -2597,9 +2780,13 @@
         sourceLabel: `${catConfig[entryCat].title.slice(0, -1)} ${currentEntry.name}`,
       });
       entryAiSuggestions = result.suggestions || [];
+      entryAiEntitiesChecked = Number.isFinite(Number(result.analysis && result.analysis.entitiesChecked))
+        ? Number(result.analysis.entitiesChecked)
+        : null;
       renderEntryAiReview();
     } catch (error) {
       entryAiSuggestions = [];
+      entryAiEntitiesChecked = null;
       entryAiReviewStatus.textContent = 'Could not check this passage';
       entryAiReviewList.innerHTML = `<div class="writer-entity-empty">${escapeHtml(error.message)}</div>`;
     } finally {
@@ -2676,23 +2863,29 @@
     writerEntityList.innerHTML = '';
     if (!p) return;
     const text = entryContentEditable.textContent || '';
-    const cats = writerFilter === 'all' ? ['characters', 'locations', 'items'] : [writerFilter];
+    const cats = writerFilter === 'all' ? ['characters', 'locations', 'items', 'lore'] : [writerFilter];
     let matches = [];
     cats.forEach(cat => {
-      (p[cat] || []).forEach((entry, i) => { if (textMentionsEntity(text, entry.name)) matches.push({ cat, entry, i }); });
+      (p[cat] || []).forEach((entry, i) => {
+        const aliases = cat === 'characters'
+          ? [entry.nickname, ...(Array.isArray(entry.aliases) ? entry.aliases : [])].flatMap(alias => Array.isArray(alias) ? alias : String(alias || '').split(/[;,]/)).map(alias => alias.trim())
+          : [];
+        if ([entry.name, ...aliases].some(name => textMentionsEntity(text, name))) matches.push({ cat, entry, i });
+      });
     });
     writerSidebarCount.textContent = matches.length ? String(matches.length) : '';
     if (!matches.length) {
-      writerEntityList.innerHTML = `<div class="writer-entity-empty">Nothing recognized yet. Character, location, and item names you've already built will show up here as you write them.</div>`;
+      writerEntityList.innerHTML = `<div class="writer-entity-empty">Nothing recognized yet. Saved character, location, item, and lore names will show up here as you write them.</div>`;
       return;
     }
     matches.forEach(({ cat, entry, i }) => {
       const card = document.createElement('div');
       card.className = 'writer-entity-card';
-      const typeLabel = cat === 'characters' ? 'Character' : cat === 'locations' ? 'Location' : 'Item';
+      const typeLabel = cat === 'characters' ? 'Character' : cat === 'locations' ? 'Location' : cat === 'items' ? 'Item' : 'Lore';
       const thumb = entry.images && entry.images[0] ? `<div class="we-thumb" style="background-image:url('${entry.images[0]}')"></div>` : '';
       let lines = '';
       if (cat === 'characters') {
+        if (entry.nickname) lines += `<div class="we-line"><b>Also known as:</b> ${escapeHtml(entry.nickname)}</div>`;
         if (entry.role) lines += `<div class="we-line"><b>Role:</b> ${escapeHtml(entry.role)}</div>`;
         if (entry.personality) lines += `<div class="we-line"><b>Personality:</b> ${escapeHtml(entry.personality)}</div>`;
         if (entry.tags) lines += `<div class="we-line"><b>Tags:</b> ${escapeHtml(entry.tags)}</div>`;
@@ -2701,17 +2894,23 @@
         if (entry.sounds) lines += `<div class="we-line"><b>Sounds:</b> ${escapeHtml(entry.sounds)}</div>`;
         if (entry.smells) lines += `<div class="we-line"><b>Smells:</b> ${escapeHtml(entry.smells)}</div>`;
         if (entry.features) lines += `<div class="we-line"><b>Unique features:</b> ${escapeHtml(entry.features)}</div>`;
-      } else {
+      } else if (cat === 'items') {
         if (entry.effects) lines += `<div class="we-line"><b>Effects:</b> ${escapeHtml(entry.effects)}</div>`;
         if (entry.looks) lines += `<div class="we-line"><b>Looks:</b> ${escapeHtml(entry.looks)}</div>`;
         if (entry.weaknesses) lines += `<div class="we-line"><b>Weaknesses:</b> ${escapeHtml(entry.weaknesses)}</div>`;
+      } else {
+        if (entry.loreType) lines += `<div class="we-line"><b>Type:</b> ${escapeHtml(entry.loreType)}</div>`;
+        if (entry.overview) lines += `<div class="we-line"><b>Overview:</b> ${escapeHtml(entry.overview)}</div>`;
+        if (entry.rules) lines += `<div class="we-line"><b>Rules:</b> ${escapeHtml(entry.rules)}</div>`;
+        if (entry.traits) lines += `<div class="we-line"><b>Traits:</b> ${escapeHtml(entry.traits)}</div>`;
       }
       if (!lines) lines = `<div class="we-line" style="font-style:italic;">No details filled in yet.</div>`;
       card.innerHTML = `${thumb}<div class="we-type">${typeLabel}</div><div class="we-name">${escapeHtml(entry.name)}</div>${lines}`;
       card.addEventListener('click', () => {
         if (cat === 'characters') openCharacterModal(i);
         else if (cat === 'locations') openLocationModal(i);
-        else openItemModal(i);
+        else if (cat === 'items') openItemModal(i);
+        else openLoreModal(i);
       });
       writerEntityList.appendChild(card);
     });
@@ -2882,6 +3081,7 @@
   const charImageFileInput = document.getElementById('charImageFileInput');
   const charFields = {
     name: document.getElementById('charName'),
+    nickname: document.getElementById('charNickname'),
     role: document.getElementById('charRole'),
     goal: document.getElementById('charGoal'),
     age: document.getElementById('charAge'),
@@ -3156,7 +3356,8 @@
   document.getElementById('locSaveBtn').addEventListener('click', () => {
     const p = projects.find(x => x.id === activeProjectId); if (!p) return;
     const name = locFields.name.value.trim() || 'Untitled location';
-    const data = { name, images: locImages.slice() };
+    const existing = locIndex === null ? null : p.locations[locIndex];
+    const data = { name, images: locImages.slice(), provenance: existing && Array.isArray(existing.provenance) ? existing.provenance.slice() : [] };
     Object.keys(locFields).forEach(key => { if (key !== 'name') data[key] = locFields[key].value.trim(); });
     let savedId;
     if (locIndex === null) {
@@ -3274,7 +3475,8 @@
   document.getElementById('itemSaveBtn').addEventListener('click', () => {
     const p = projects.find(x => x.id === activeProjectId); if (!p) return;
     const name = itemFields.name.value.trim() || 'Untitled item';
-    const data = { name, images: itemImages.slice() };
+    const existing = itemIndex === null ? null : p.items[itemIndex];
+    const data = { name, images: itemImages.slice(), provenance: existing && Array.isArray(existing.provenance) ? existing.provenance.slice() : [] };
     Object.keys(itemFields).forEach(key => { if (key !== 'name') data[key] = itemFields[key].value.trim(); });
     let savedId;
     if (itemIndex === null) {
@@ -3306,6 +3508,141 @@
     itemOverlay.classList.remove('show');
     renderCategoryCounts(p);
     renderHubGrid('items', p);
+  });
+
+  // ================= Lore card template =================
+  const loreOverlay = document.getElementById('loreOverlay');
+  const loreModalTitle = document.getElementById('loreModalTitle');
+  const loreImageGrid = document.getElementById('loreImageGrid');
+  const loreImageFileInput = document.getElementById('loreImageFileInput');
+  const loreFields = {
+    name: document.getElementById('loreName'),
+    loreType: document.getElementById('loreType'),
+    overview: document.getElementById('loreOverview'),
+    role: document.getElementById('loreRole'),
+    origin: document.getElementById('loreOrigin'),
+    structure: document.getElementById('loreStructure'),
+    rules: document.getElementById('loreRules'),
+    traits: document.getElementById('loreTraits'),
+    limits: document.getElementById('loreLimits'),
+    relationships: document.getElementById('loreRelationships'),
+    notes: document.getElementById('loreNotes'),
+  };
+  let loreIndex = null;
+  let loreImages = [];
+  let loreModalSnapshot = null;
+  watchFields(loreFields);
+  loreFields.loreType.addEventListener('change', markUnsaved);
+
+  function renderLoreImageGrid() {
+    loreImageGrid.innerHTML = '';
+    loreImages.forEach((src, index) => {
+      const thumb = document.createElement('div');
+      thumb.className = 'char-image-thumb';
+      thumb.innerHTML = `<img src="${src}" alt="Lore reference"><div class="zoom-hint"><span class="zoom-icon">&#10086;</span><span class="zoom-text">Click to enlarge</span></div><button class="remove-img" type="button" title="Remove image">&times;</button>`;
+      thumb.querySelector('img').addEventListener('click', () => openLightbox(src));
+      thumb.querySelector('.remove-img').addEventListener('click', () => { loreImages.splice(index, 1); markUnsaved(); renderLoreImageGrid(); });
+      loreImageGrid.appendChild(thumb);
+    });
+    const addTile = document.createElement('div');
+    addTile.className = 'char-image-add';
+    addTile.title = 'Add image';
+    addTile.textContent = '+';
+    addTile.addEventListener('click', () => loreImageFileInput.click());
+    loreImageGrid.appendChild(addTile);
+  }
+
+  loreImageFileInput.addEventListener('change', async () => {
+    const files = Array.from(loreImageFileInput.files || []);
+    if (!files.length) return;
+    for (const file of files) {
+      const dataUrl = await resizeImageFile(file, 800);
+      if (dataUrl) { loreImages.push(dataUrl); markUnsaved(); }
+    }
+    renderLoreImageGrid();
+    loreImageFileInput.value = '';
+  });
+
+  function openLoreModal(index) {
+    loreIndex = index;
+    if (index === null) {
+      loreModalTitle.textContent = 'New lore card';
+      Object.values(loreFields).forEach(field => { field.value = ''; });
+      loreFields.loreType.value = 'concept';
+      loreImages = [];
+      document.getElementById('loreDeleteBtn').style.visibility = 'hidden';
+    } else {
+      const p = projects.find(x => x.id === activeProjectId);
+      const entry = p.lore[index];
+      loreModalTitle.textContent = 'Edit lore card';
+      Object.keys(loreFields).forEach(key => { loreFields[key].value = entry[key] || ''; });
+      loreFields.loreType.value = entry.loreType || 'concept';
+      loreImages = (entry.images || []).slice();
+      document.getElementById('loreDeleteBtn').style.visibility = 'visible';
+    }
+    loreModalSnapshot = captureOverlaySnapshot(loreFields, loreImages);
+    renderLoreImageGrid();
+    loreOverlay.classList.add('show');
+    startAutosaveTimer();
+    setTimeout(() => loreFields.name.focus(), 50);
+  }
+
+  function closeLoreModal() {
+    if (loreOverlay.classList.contains('show') && overlayHasUnsavedChanges(loreModalSnapshot, loreFields, loreImages)) {
+      document.getElementById('loreSaveBtn').click();
+    }
+    stopAutosaveTimer();
+    loreOverlay.classList.remove('show');
+    markSaved();
+  }
+  document.getElementById('loreCancelBtn').addEventListener('click', closeLoreModal);
+  loreOverlay.addEventListener('click', (event) => { if (event.target === loreOverlay) closeLoreModal(); });
+
+  document.getElementById('loreSaveBtn').addEventListener('click', () => {
+    const p = projects.find(x => x.id === activeProjectId);
+    if (!p) return;
+    const name = loreFields.name.value.trim() || 'Untitled lore';
+    const existing = loreIndex === null ? null : p.lore[loreIndex];
+    const data = {
+      name,
+      loreType: loreFields.loreType.value || 'concept',
+      images: loreImages.slice(),
+      provenance: existing && Array.isArray(existing.provenance) ? existing.provenance.slice() : [],
+    };
+    Object.keys(loreFields).forEach(key => { if (key !== 'name' && key !== 'loreType') data[key] = loreFields[key].value.trim(); });
+    let savedId;
+    if (loreIndex === null) {
+      savedId = 'e_' + Date.now() + Math.random().toString(36).slice(2, 6);
+      data._id = savedId;
+      p.lore.push(data);
+      loreIndex = p.lore.length - 1;
+    } else {
+      savedId = existing._id || ('e_' + Date.now());
+      data._id = savedId;
+      p.lore[loreIndex] = data;
+    }
+    p.updated = Date.now();
+    saveProjects();
+    if (!autosaveInProgress) loreOverlay.classList.remove('show');
+    renderCategoryCounts(p);
+    renderHubGrid('lore', p);
+    markLastOpened('lore', savedId, name);
+  });
+
+  document.getElementById('loreDeleteBtn').addEventListener('click', () => {
+    const p = projects.find(x => x.id === activeProjectId);
+    if (!p || loreIndex === null) return;
+    const target = p.lore[loreIndex];
+    const name = target && target.name ? target.name : 'this lore card';
+    if (!window.confirm(`Delete "${name}"? This cannot be undone.`)) return;
+    if (window.MarginaliaV2 && window.MarginaliaV2.deleteProjectEntity) {
+      window.MarginaliaV2.deleteProjectEntity(p, 'lore', target && target._id ? target._id : null);
+    }
+    p.lore.splice(loreIndex, 1);
+    saveProjects();
+    loreOverlay.classList.remove('show');
+    renderCategoryCounts(p);
+    renderHubGrid('lore', p);
   });
 
   // ================= Delete flow =================

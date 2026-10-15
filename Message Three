@@ -1,6 +1,6 @@
 # Marginalia Project Handoff
 
-Last updated: 2026-09-25
+Last updated: 2026-10-15
 
 ## Resume Instruction
 
@@ -8,7 +8,7 @@ Read `Message One`, `Message Two`, and this file before making changes. Treat th
 
 ## Project Vision
 
-Marginalia is a calm, literary writing workbench that lets the writer do the writing while guiding their memory. It supports both planners and pantsers through books, chapters, scenes, characters, locations, items, Brain Dumps, themes, rich-text writing, and contextual memory suggestions.
+Marginalia is a calm, literary writing workbench that lets the writer do the writing while guiding their memory. It supports books, chapters, scenes, characters with aliases, locations, items, Lore cards, Brain Dumps, themes, rich-text writing, and contextual memory suggestions.
 
 ## Current Repository State
 
@@ -16,8 +16,8 @@ Marginalia is a calm, literary writing workbench that lets the writer do the wri
 - Main app: `index.html`
 - V1 storage: localStorage, retained as the local/offline source of truth for now
 - Git branch: `main`
-- Last confirmed commit: `Version 3 Updates` (before the latest editor refinements)
-- GitHub showed the Supabase migration and adapter files, but publishing the latest `index.html` editor changes has not been confirmed
+- Last confirmed pushed commit: `Added a password reset function`
+- Character nickname and Lore-card changes are currently local and uncommitted; Pages and Supabase have not received them
 - GitHub publishing is separate from Supabase Edge Function deployment
 
 ## Current Frontend Features
@@ -30,93 +30,56 @@ Marginalia is a calm, literary writing workbench that lets the writer do the wri
 - Supabase publishable key and project URL configuration
 - Global save status banner
 - Local save plus debounced Supabase sync status
-- Autosave across chapters, scenes, characters, locations, items, and Brain Dumps
+- Autosave across chapters, scenes, characters, locations, items, Lore cards, and Brain Dumps
 - Browser warning for unsaved changes
 - One-step deletion confirmation for characters, locations, and items
 - Two-step deletion confirmation for books
 - Eleven themes with light/dark modes and ambient decoration
 - Book library and project workspace
-- Chapters, scenes, characters, locations, and items
+- Chapters, scenes, characters, locations, items, and Lore cards for factions, creatures, systems, and concepts
 - Multiple titled Brain Dumps using the same hub/card/editor flow
 - Migration of an older single `brainDump` string into the first `brainDumps` entry
 - Rich-text editor with line count display
 - Full-viewport writing and entity-template workspaces in place of floating editor modals
-- Save-before-close protection for chapter, character, location, and item editors
+- Save-before-close protection for chapter, character, location, item, and Lore editors
 - Chapter/scene word count with a per-entry goal and goal-reached feedback
 - Named paragraph styles (Title, headings, Block Quote, Caption, Centered Text, Code Block, Verse) and character styles (Emphasis, Code Span)
 - Rendered-row gutter measurement that accounts for text wrapping and formatting; browser alignment smoke test still needed
 - Live entity matching sidebar
-- Image resizing to a maximum 800x800px
-- Character/location/item image lightbox
+- Image resizing to a maximum 800x800px for character, location, item, and Lore card references
+- Character/location/item/Lore image lightbox
 - `Check memory` button in the generic writing editor
 - Approve/Reject suggestion review panel
+- Character nickname aliases are included in mention matching and analyzer context
+- Memory Review proposes new character, location, item, and Lore cards from contextual clues; approving a card unlocks its linked detail suggestions
 - Character-sheet provenance links such as `(Chapter One - Line 7)`
 - Clicking provenance opens the source entry and selects/highlights the source sentence
 
 ## Supabase State
 
-Project URL:
+Project URL: `https://svzhtvasgnndvfemnjtv.supabase.co`
 
-`https://svzhtvasgnndvfemnjtv.supabase.co`
+A publishable browser key is configured in `index.html`. Never put service-role keys, database passwords, or access tokens in GitHub, this handoff, or chat.
 
-A publishable browser key is configured in `index.html`. Never add service-role keys, database passwords, or access tokens to GitHub, Message Three, or chat.
+Completed backend work:
 
-Completed Supabase work:
+- The schema and migrations `002_client_keys.sql` and `003_document_word_goal.sql` were applied; the user confirmed migration 003.
+- Authenticated books, entities, documents, and Brain Dumps have populated successfully.
+- The `analyze-scene` Edge Function is deployed, but the current local changes to its analyzer helper still need a separate redeploy.
+- `supabase/migrations/004_lore_entity_kind.sql` is new and has not yet been applied to the hosted project.
 
-- `supabase/schema.sql` creates books, documents, entities, AI suggestions, row-level security, and ownership checks
-- `supabase/migrations/002_client_keys.sql` was applied successfully
-- `supabase/migrations/003_document_word_goal.sql` was applied successfully on 2026-09-25, per user confirmation
-- `documents.word_goal` is included in local schema and V2 document sync; adapter tests cover both a set goal and no goal
-- The documents kind constraint allows `chapter`, `scene`, and `brain_dump`
-- The V2 adapter is enabled in `supabase/v2-adapter.js`
-- Authenticated books, entities, documents, and Brain Dumps are populating in Supabase
-- `supabase/functions/analyze-scene/index.ts` is deployed as the `analyze-scene` Edge Function
-- The Edge Function includes CORS support for browser POST requests
-
-## V2 Adapter Behavior
-
-`supabase/v2-adapter.js`:
-
-- Uses stable local `client_key` values to map V1 records to Supabase UUIDs
-- Syncs books and the legacy Brain Dump compatibility field
-- Syncs characters, locations, and items to `entities`
-- Syncs chapters, scenes, and Brain Dumps to `documents`
-- Syncs a chapter/scene `wordGoal` to the nullable `documents.word_goal` column
-- Shows sync state in the global save banner
-- Resolves Supabase book/entity IDs before analysis
-- Calls the Edge Function through the authenticated Supabase client
-- Maps returned remote entity IDs back to local entity keys
+The adapter syncs local character nicknames and Lore card fields into `entities.data`. Analysis sends those saved entity details to the authenticated Edge Function. Approved provenance remains attached to each local card.
 
 ## Current Mock AI Behavior
 
-The Edge Function is not using a paid AI provider yet. It is deterministic mock logic, so it does not create model-token charges. Copilot usage in VS Code is separate from Marginalia's Supabase and Edge Function costs.
-
-The mock extractor recognizes a small set of explicit character, location, and item details, including scar evidence such as:
-
-```text
-Mira touched the scar above her left eye.
-```
-
-It returns a structured suggestion similar to:
-
-```json
-{
-  "type": "character_update",
-  "entityId": "remote-entity-id",
-  "field": "physical",
-  "operation": "append",
-  "value": "Mira has a scar above her left eye.",
-  "evidence": "Mira touched the scar above her left eye.",
-  "sourceLine": 1,
-  "status": "pending"
-}
-```
-
-The current source line is calculated from preserved rich-text line breaks. The frontend stores approved provenance in the character entity's JSON data under `provenance`.
+The analyzer uses deterministic heuristics, not a paid model. It recognizes supported character nicknames and some contextual clues for new characters, locations, items, and Lore cards. Every create/update proposal remains pending until approved in Memory Review. Its phrase patterns are deliberately limited and may miss or misclassify ambiguous prose.
 
 ## Known Limitations
 
 - The analyzer uses deterministic heuristics, not a real language model, and its evidence coverage remains intentionally limited.
+- Entity discovery uses conservative deterministic name/context heuristics, not a language model; it can miss names and misclassify ambiguous phrases, so review approval remains required.
+- Character nickname aliases resolve to their canonical cards; Lore discovery supports faction, creature, system, and concept cards but still uses limited phrase patterns.
+- New Lore cards and their evidence-based updates are handled through Memory Review approval.
 - The review panel and history are functional but still need a UX polish pass.
 - The current provenance link is implemented for character-sheet updates first.
 - `V2_SETUP.md` and older handoff sections may still describe completed review and adapter work as future work; keep them aligned when next editing setup documentation.
@@ -128,14 +91,15 @@ The current source line is calculated from preserved rich-text line breaks. The 
 
 ## Immediate Next Steps
 
-1. Publish the latest `index.html` changes to GitHub Pages if they have not been pushed yet.
-2. Add the deployed Marginalia URL under Supabase Authentication > URL Configuration > Redirect URLs, then test requesting a password reset and setting a new password.
-3. Smoke-test the writer in a browser: wrapped paragraphs, headings, Title, Code Block, Verse, font-size changes, line-number alignment, goal feedback, and mobile layout.
-4. Set and save a word goal, then verify the matching `documents.word_goal` value in Supabase. The migration has been applied; the live write has not yet been confirmed.
-5. Continue the review-panel UX polish and test pending, approved, and rejected history states.
-6. Tighten deterministic analyzer heuristics where real writing exposes attribution or evidence edge cases; keep tests focused on confirmed examples.
-7. Before public use, remove or clearly isolate the testing bypass and review auth/data access.
-8. Treat a real AI provider as future work; establish budget limits, throttling, chunking, and settings before enabling paid model calls.
+1. Apply `supabase/migrations/004_lore_entity_kind.sql` to the hosted Supabase project.
+2. Commit and push the UI/adapter changes, then separately redeploy `supabase/functions/analyze-scene/index.ts` so nicknames and Lore are available to live Memory Review.
+3. Test a nickname, new faction, creature, and system in Memory Review; approve cards and details, then verify their local and Supabase records.
+4. Test password recovery on the published site after allowlisting its URL under Supabase Authentication > URL Configuration > Redirect URLs.
+5. Smoke-test the writer in a browser: wrapped paragraphs, headings, Title, Code Block, Verse, font-size changes, line-number alignment, goal feedback, and mobile layout.
+6. Set and save a word goal, then verify the matching `documents.word_goal` value in Supabase.
+7. Continue review-panel UX polish and test pending, approved, and rejected history states.
+8. Before public use, remove or clearly isolate the testing bypass and review auth/data access.
+9. Treat a real AI provider as future work; establish budget limits, throttling, chunking, and settings before enabling paid model calls.
 
 ## Safe Working Process
 
@@ -169,8 +133,16 @@ Useful restart prompt:
 
 - Added a Supabase Auth password reset request flow, recovery-link password form, password confirmation, and cancel path.
 - Live recovery email and password update remain unverified until the deployed app URL is allowed in Supabase Auth Redirect URLs.
+- Added a dismiss control to Memory Review and empty-result messaging that distinguishes no saved entities from no supported evidence match.
+- Added deterministic discovery for contextual character, location, and item candidates, linked detail suggestions, and review-approved card creation.
+- Added a character nickname field with alias-aware analysis and mention matching.
+- Added Lore cards for factions, creatures, systems, and concepts, including template fields, contextual analysis, sync mapping, and migration `004_lore_entity_kind.sql`.
+- Fixed item suggestions to use the visible Notes field and preserved provenance when editing location/item cards.
+- Fixed provenance array checking so approved detail suggestions do not throw.
+- Validated candidate extraction and screenshot-inspired cases, create-then-detail approvals for all three card types, embedded-script syntax, adapter/analyzer tests, editor diagnostics, and `git diff --check`.
+- The Edge Function change still needs deployment; Pages publishing does not deploy Supabase functions.
 - Validated the local recovery screens, embedded-script syntax, adapter and analyzer tests, editor diagnostics, and `git diff --check`.
 
 ## Next unchecked task
 
-- Publish and browser-test the latest editor/gutter/style changes; then confirm a saved word goal reaches Supabase `documents.word_goal`.
+- Apply migration `004_lore_entity_kind.sql`, deploy the updated `analyze-scene` Edge Function, then test nickname/Lore sync and review approval on the published app.

@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { buildMockSuggestions } from './mock-helpers.mjs';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -7,7 +8,7 @@ const corsHeaders = {
   'Content-Type': 'application/json',
 };
 
-type Entity = { id: string; kind: 'character' | 'location' | 'item'; name: string };
+type Entity = { id: string; kind: 'character' | 'location' | 'item' | 'lore'; name: string; data?: Record<string, unknown> };
 
 type AnalyzeRequest = {
   bookId: string;
@@ -128,155 +129,6 @@ function makeSuggestion({ entityId, type, field, operation, value, evidence, sou
   };
 }
 
-function evaluateCharacterSuggestion(entity: Entity, text: string, allNames: string[] = []): Suggestion[] {
-  const sentences = text.split(/(?<=[.!?])\s+/).filter(Boolean);
-  const results: Suggestion[] = [];
-
-  for (const sentence of sentences) {
-    if (!sentenceMatchesEntity(entity, sentence, text, allNames)) continue;
-    const lower = sentence.toLowerCase();
-
-    if (/\bscar(?:ring)?\b/i.test(lower)) {
-      const scarMatch = sentence.match(/\bscar(?:ring)?\b([^.!?]*)/i);
-      const detail = scarMatch ? ('a scar' + scarMatch[1]).trim().replace(/[.!?]+$/, '') : 'a scar';
-      results.push(makeSuggestion({
-        entityId: entity.id,
-        type: 'character_update',
-        field: 'physical',
-        operation: 'append',
-        value: `${entity.name} has ${detail}.`,
-        evidence: sentence,
-        sourceText: sentence,
-        sourceLine: findSourceLine(text, sentence),
-        confidence: 0.91,
-      }));
-    }
-
-    if (/\b(?:wear(?:s|ing)?|dressed in|clad in|wrapped in|wore|coat|cloak|dress|boots|gloves|hat|scarf|sash|jacket|cape)\b/i.test(lower)) {
-      const clothingMatch = sentence.match(/(?:wear(?:s|ing)?|dressed in|clad in|wrapped in|wore)\s+(?:a|an|the)?\s*([^.!?]+)/i);
-      const clothing = clothingMatch ? clothingMatch[1].trim().replace(/[.!?]+$/, '') : 'distinctive clothing';
-      results.push(makeSuggestion({
-        entityId: entity.id,
-        type: 'character_update',
-        field: 'physical',
-        operation: 'append',
-        value: `${entity.name} is described in clothing that includes ${clothing}.`,
-        evidence: sentence,
-        sourceText: sentence,
-        sourceLine: findSourceLine(text, sentence),
-        confidence: 0.8,
-      }));
-    }
-
-    if (/\b(?:always|often|habitually|tends to|keeps|fidgets|twirls|chews|hums|stares|nervously|nervous|rubs|licks|taps)\b/i.test(lower)) {
-      const habit = lowercaseHabit(sentence);
-      results.push(makeSuggestion({
-        entityId: entity.id,
-        type: 'character_update',
-        field: 'habits',
-        operation: 'append',
-        value: `${entity.name} ${habit}.`,
-        evidence: sentence,
-        sourceText: sentence,
-        sourceLine: findSourceLine(text, sentence),
-        confidence: 0.75,
-      }));
-    }
-
-    if (/\b(?:friend|sister|brother|mother|father|mentor|rival|enemy|ally|lover|wife|husband|daughter|son|guardian|captain|queen|king|lord|lady|apprentice)\b/i.test(lower)) {
-      const relation = sentence.match(/\b(?:friend|sister|brother|mother|father|mentor|rival|enemy|ally|lover|wife|husband|daughter|son|guardian|captain|queen|king|lord|lady|apprentice)\b/i)?.[0] ?? 'relative';
-      results.push(makeSuggestion({
-        entityId: entity.id,
-        type: 'character_update',
-        field: 'relationships',
-        operation: 'append',
-        value: `${entity.name} is referenced in relation to a ${relation}.`,
-        evidence: sentence,
-        sourceText: sentence,
-        sourceLine: findSourceLine(text, sentence),
-        confidence: 0.72,
-      }));
-    }
-  }
-
-  return results;
-}
-
-function evaluateLocationSuggestion(entity: Entity, text: string): Suggestion | null {
-  const sentence = findSourceSentence(text, entity.name);
-  if (!sentence) return null;
-  const lower = sentence.toLowerCase();
-  if (!/(?:in|at|inside|outside|near|by|beside|beyond|through|under|across|along|past)/i.test(lower)) return null;
-  return makeSuggestion({
-    entityId: entity.id,
-    type: 'location_update',
-    field: 'description',
-    operation: 'append',
-    value: `${entity.name} is part of the setting described in this passage.`,
-    evidence: sentence,
-    sourceText: sentence,
-    sourceLine: findSourceLine(text, sentence),
-    confidence: 0.7,
-  });
-}
-
-function evaluateItemSuggestion(entity: Entity, text: string): Suggestion | null {
-  const sentence = findSourceSentence(text, entity.name);
-  if (!sentence) return null;
-  const lower = sentence.toLowerCase();
-  if (!/(?:carried|held|used|dropped|picked up|kept in|gripped|wore|slung|packed|set down|tucked|brought|twirl(?:s|ed)?|fiddled with|played with)/i.test(lower)) return null;
-  return makeSuggestion({
-    entityId: entity.id,
-    type: 'item_update',
-    field: 'details',
-    operation: 'append',
-    value: `${entity.name} is actively relevant to the immediate scene and may matter later.`,
-    evidence: sentence,
-    sourceText: sentence,
-    sourceLine: findSourceLine(text, sentence),
-    confidence: 0.68,
-  });
-}
-
-function buildMockSuggestions(text: string, entities: Entity[]): Suggestion[] {
-  const suggestions: Suggestion[] = [];
-  const safeEntities = Array.isArray(entities) ? entities : [];
-  const characterNames = safeEntities
-    .filter((entity) => entity && entity.kind === 'character' && entity.name)
-    .map((entity) => String(entity.name))
-    .filter(Boolean);
-
-  for (const entity of safeEntities) {
-    if (!entity || !entity.name || !entity.id) continue;
-    const sourceText = findSourceSentence(text, entity.name);
-    if (!sourceText || !sourceText.trim()) continue;
-
-    if (entity.kind === 'character') {
-      suggestions.push(...evaluateCharacterSuggestion(entity, text, characterNames));
-      continue;
-    }
-
-    if (entity.kind === 'location') {
-      const suggestion = evaluateLocationSuggestion(entity, text);
-      if (suggestion) suggestions.push(suggestion);
-      continue;
-    }
-
-    if (entity.kind === 'item') {
-      const suggestion = evaluateItemSuggestion(entity, text);
-      if (suggestion) suggestions.push(suggestion);
-    }
-  }
-
-  const seen = new Set<string>();
-  return suggestions.filter((suggestion) => {
-    const key = suggestionKey(suggestion);
-    if (!key || seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
-}
-
 Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   if (request.method !== 'POST') return response({ error: 'POST required' }, 405);
@@ -307,8 +159,13 @@ Deno.serve(async (request) => {
   if (bookError || !book) return response({ error: 'Book not found' }, 404);
 
   const entities = Array.isArray(payload.entities) ? payload.entities : [];
+  const suggestions = buildMockSuggestions(payload.text, entities);
   return response({
-    suggestions: buildMockSuggestions(payload.text, entities),
-    analysis: { mode: 'mock', entitiesChecked: entities.length },
+    suggestions,
+    analysis: {
+      mode: 'mock',
+      entitiesChecked: entities.length,
+      newEntitiesFound: suggestions.filter((suggestion) => suggestion.type === 'entity_create').length,
+    },
   });
 });

@@ -51,12 +51,12 @@ Response:
 }
 ```
 
-The mock function only produces suggestions for explicit `scar` evidence. This makes the contract testable without inventing story facts or requiring an AI API key.
+The analyzer uses deterministic mock logic, not a language model. It recognizes saved character nicknames as aliases and can propose new character, location, item, and Lore cards from supported context patterns. Lore cards can represent factions, creatures, systems, or general concepts. New cards and their linked detail suggestions remain pending until approved in Memory Review. These patterns can miss or misclassify ambiguous prose and do not require an AI API key.
 
 ## Local setup later
 
 1. Create a Supabase project.
-2. Apply `supabase/schema.sql` in the SQL editor.
-3. Deploy `supabase/functions/analyze-scene/index.ts`.
+2. For a new database, apply `supabase/schema.sql` in the SQL editor. For the existing project, apply `supabase/migrations/004_lore_entity_kind.sql` after migrations 002 and 003.
+3. Deploy `supabase/functions/analyze-scene/index.ts` together with its imported `mock-helpers.mjs` file.
 4. Add the project URL and anon key through environment-specific configuration, never hardcoded secrets.
-5. Add a V1 adapter that mirrors localStorage saves into the new tables behind a feature flag.
+5. Verify authenticated sync for books, documents, characters, locations, items, Lore cards, and approved review suggestions.

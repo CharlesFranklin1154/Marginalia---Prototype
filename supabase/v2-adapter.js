@@ -60,7 +60,7 @@
     return {
       client_key: `${project.id}:${kind}:${entry._id}`,
       book_id: bookId,
-      kind: kind === 'characters' ? 'character' : kind === 'locations' ? 'location' : 'item',
+      kind: ({ characters: 'character', locations: 'location', items: 'item', lore: 'lore' })[kind] || 'item',
       name: entry.name || 'Untitled',
       data: entry,
       updated_at: new Date().toISOString(),
@@ -141,7 +141,7 @@
     const books = await request(`books?client_key=eq.${encodeURIComponent(project.id)}&select=id`);
     const bookId = books && books[0] && books[0].id;
     if (!bookId) return;
-    const entityKind = kind === 'characters' ? 'character' : kind === 'locations' ? 'location' : 'item';
+    const entityKind = ({ characters: 'character', locations: 'location', items: 'item', lore: 'lore' })[kind] || 'item';
     const clientKey = `${project.id}:${kind}:${entryId}`;
     try {
       await request(`entities?book_id=eq.${encodeURIComponent(bookId)}&kind=eq.${encodeURIComponent(entityKind)}&client_key=eq.${encodeURIComponent(clientKey)}`, { method: 'DELETE' });
@@ -175,7 +175,7 @@
     });
     const bookId = books && books[0] && books[0].id;
     if (!bookId) throw new Error('V2 book sync did not return an id.');
-    for (const kind of ['characters', 'locations', 'items']) {
+    for (const kind of ['characters', 'locations', 'items', 'lore']) {
       const entities = (project[kind] || []).map(entry => entityPayload(project, bookId, kind, entry));
       if (entities.length) {
         try {
@@ -236,7 +236,7 @@
     const books = await request(`books?client_key=eq.${encodeURIComponent(project.id)}&select=id`);
     const bookId = books && books[0] && books[0].id;
     if (!bookId) throw new Error('This book has not synced to Supabase yet.');
-    const entities = await request(`entities?book_id=eq.${encodeURIComponent(bookId)}&select=id,client_key,kind,name`);
+    const entities = await request(`entities?book_id=eq.${encodeURIComponent(bookId)}&select=id,client_key,kind,name,data`);
     const entityById = new Map(entities.map(entity => [entity.id, entity]));
     const remoteDocumentClientKey = entry && entry.category && entry._id ? `${project.id}:${entry.category}:${entry._id}` : null;
     const documentMatch = remoteDocumentClientKey
@@ -246,14 +246,21 @@
     const result = await analyzeScene({
       bookId,
       text: htmlToPlainText(entry.details),
-      entities: entities.map(entity => ({ id: entity.id, kind: entity.kind, name: entity.name })),
+      entities: entities.map(entity => ({ id: entity.id, kind: entity.kind, name: entity.name, data: entity.data || {} })),
     });
-    result.suggestions = dedupeSuggestions((result.suggestions || []).map(suggestion => ({
-      ...suggestion,
-      localEntityKey: entityById.get(suggestion.entityId)?.client_key || null,
-      sourceDocumentKey: remoteDocumentClientKey,
-      sourceLabel: entry.sourceLabel || entry.name || 'Untitled entry',
-    })));
+    result.suggestions = dedupeSuggestions((result.suggestions || []).map(suggestion => {
+      const entity = entityById.get(suggestion.entityId);
+      return {
+        ...suggestion,
+        localEntityKey: suggestion.candidateKey
+          ? `candidate:${suggestion.candidateKey}`
+          : entity && entity.client_key ? entity.client_key : null,
+        entityName: suggestion.entityName || (entity && entity.name) || null,
+        entityKind: suggestion.entityKind || (entity && entity.kind) || null,
+        sourceDocumentKey: remoteDocumentClientKey,
+        sourceLabel: entry.sourceLabel || entry.name || 'Untitled entry',
+      };
+    }));
     const suggestionsForAudit = result.suggestions.map(suggestion => buildSuggestionAuditPayload({
       bookId,
       documentId,
@@ -284,6 +291,7 @@
     analyzeScene,
     analyzeProjectEntry,
     documentPayload,
+    entityPayload,
     buildSuggestionAuditPayload,
     dedupeSuggestions,
     summarizeSuggestionStatuses,
@@ -292,6 +300,6 @@
   };
 
   if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { documentPayload, buildSuggestionAuditPayload, dedupeSuggestions, summarizeSuggestionStatuses, deleteProjectEntity, deleteProjectBook };
+    module.exports = { documentPayload, entityPayload, buildSuggestionAuditPayload, dedupeSuggestions, summarizeSuggestionStatuses, deleteProjectEntity, deleteProjectBook };
   }
 })();

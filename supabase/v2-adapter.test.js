@@ -1,5 +1,22 @@
 const assert = require('node:assert/strict');
-const { documentPayload, buildSuggestionAuditPayload, dedupeSuggestions, summarizeSuggestionStatuses } = require('./v2-adapter.js');
+const { documentPayload, entityPayload, buildSuggestionAuditPayload, dedupeSuggestions, summarizeSuggestionStatuses } = require('./v2-adapter.js');
+
+const lorePayload = entityPayload({ id: 'project-123' }, 'book-123', 'lore', {
+  _id: 'lore-456',
+  name: 'The Ashen Order',
+  loreType: 'faction',
+  overview: 'An old group.',
+});
+assert.equal(lorePayload.kind, 'lore');
+assert.equal(lorePayload.data.loreType, 'faction');
+assert.equal(lorePayload.data.overview, 'An old group.');
+
+const characterPayload = entityPayload({ id: 'project-123' }, 'book-123', 'characters', {
+  _id: 'character-123',
+  name: 'Calvin',
+  nickname: 'Cal',
+});
+assert.equal(characterPayload.data.nickname, 'Cal');
 
 const document = documentPayload({ id: 'project-123' }, 'book-123', 'chapters', {
   _id: 'chapter-456',
