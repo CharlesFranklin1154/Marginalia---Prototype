@@ -1659,8 +1659,14 @@
     loginSubmitBtn.disabled = true;
     loginSubmitBtn.textContent = authMode === 'login' ? 'Logging in...' : 'Creating account...';
     try {
+      const signupRedirect = new URL(window.location.href);
+      signupRedirect.hash = '';
       const result = authMode === 'signup'
-        ? await supabaseClient.auth.signUp({ email, password: pass })
+        ? await supabaseClient.auth.signUp({
+          email,
+          password: pass,
+          options: { emailRedirectTo: signupRedirect.toString() },
+        })
         : await supabaseClient.auth.signInWithPassword({ email, password: pass });
       if (result.error) {
         showLoginError(result.error.message);

@@ -45,8 +45,8 @@ The tests use mocked HTTP responses. They do not replace a live Supabase check.
 
 1. Browser-check the latest published Memory Review panel: scroll through a long list, approve and reject suggestions, confirm cards collapse smoothly, and confirm resolved suggestions remain in Approved/Rejected history.
 2. Re-run Memory Review on the same passage and confirm saved decisions persist.
-3. Smoke-test sync, restore, deletion, and account isolation with care; back up valuable writing before changing accounts.
-4. Verify password recovery and its allowed redirect URL in Supabase Auth.
+3. Smoke-test sync, restore, deletion, and account isolation with care; back up valuable writing before changing accounts. Isolation means a separate test account should not see the first account's library: create a uniquely named test book under the test account, then sign back into the original account and confirm that test book is absent.
+4. Verify password recovery and email confirmation redirects in Supabase Auth; the published site URL must be configured and allowed.
 5. Before public use, review row-level security and remove or clearly isolate the temporary admin testing bypass.
 6. Treat a real AI provider as future work; decide on limits, privacy behavior, and cost controls before enabling paid calls.
 
@@ -55,5 +55,7 @@ The tests use mocked HTTP responses. They do not replace a live Supabase check.
 - Push frontend changes to the GitHub repository to publish the website through GitHub Pages.
 - Apply SQL migrations in the Supabase SQL Editor; a GitHub Pages deployment does not change the database.
 - Deploy the Edge Function separately in Supabase when its source changes.
+
+For signup email confirmation, set Supabase **Authentication → URL Configuration → Site URL** to the published site and add the published URL to **Redirect URLs**. Signup returns to the URL where the user created the account. See [`V2_SETUP.md`](./V2_SETUP.md#authentication-urls).
 
 Never commit service-role keys, database passwords, or user access tokens.

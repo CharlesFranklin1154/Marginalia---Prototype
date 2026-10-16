@@ -47,6 +47,12 @@ Deploy the function separately from GitHub Pages, and include both files. No red
 
 The function requires an authenticated bearer token and checks that the requested book belongs to that user. The browser's analysis request must not send the `Prefer` header; that header is not included in the Edge Function's CORS allowlist.
 
+## Authentication URLs
+
+In Supabase Dashboard, open **Authentication → URL Configuration**. Set **Site URL** to the published Marginalia URL and add that exact URL to **Redirect URLs**. Add a localhost URL only if you intentionally test the app locally. Signup asks Supabase to return to the page where signup started, so the published URL must be allowed.
+
+Email confirmation links are single-use and expire. If a link returns `otp_expired`, request a fresh confirmation email after checking these URL settings, then open the newest link once.
+
 ## Local tests
 
 Run from the project folder:
