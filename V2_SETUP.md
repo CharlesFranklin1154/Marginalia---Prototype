@@ -1,72 +1,53 @@
-# Marginalia V2 Foundation
+# Supabase V2 Setup and Status
 
-This folder defines the first authenticated persistence boundary for Marginalia. The browser still keeps a localStorage copy, but signed-in sessions now load the account's Supabase library, merge it with that account's local copy, and sync the merged library back.
+This guide describes Marginalia's current Supabase persistence and Memory Review setup. For the project overview and ordered follow-up work, see [`README.md`](./README.md).
+
+## Current status
+
+As of October 15, 2026, the user confirmed that library saves are reaching Supabase and Memory Review is working. The recent empty-response, CORS header, and missing `source_line` issues were addressed. Migration 006 supplies the column that was missing from the existing database.
+
+GitHub Pages publishes the browser app. Supabase database migrations and the `analyze-scene` Edge Function are separate deployments. Do not rerun migrations already applied or run `schema.sql` against the existing database.
 
 ## Data flow
 
-1. On sign-in, the browser loads the user's local library and the books, documents, and entities allowed by Supabase row-level security.
-2. The browser merges local and remote projects. Projects use the latest content-sync timestamp for conflicts; entries present on only one side are retained.
-3. The merged library is saved under a user-specific localStorage key and uploaded. Later saves sync the full library, including removals; local deletion markers survive offline or failed syncs so deleted entries are not restored during the next merge.
-4. The browser can send a saved chapter or scene and book context to `analyze-scene`.
-5. The Edge Function verifies the signed-in user and book ownership.
-6. The function returns structured suggestions. It never edits an entity directly.
-7. The Memory Review panel loads the passage's saved suggestion history and writes approval/rejection decisions to Supabase before applying them locally.
+1. On sign-in, the browser loads the account's local library and the books, documents, and entities allowed by Supabase row-level security.
+2. Local and remote projects are merged. Project-level timestamps determine conflicts; entries present on only one side are retained.
+3. The merged library is saved under a user-specific localStorage key and synced. Full-library sync reconciles removals; local deletion markers protect offline or failed syncs.
+4. The browser sends a saved chapter or scene, book context, and entity context to `analyze-scene`.
+5. The Edge Function verifies the signed-in user and book ownership and returns structured suggestions; it does not edit entities.
+6. Memory Review stores suggestions and review decisions in Supabase. The browser applies approved suggestions locally only after the decision is saved.
 
-The previous unscoped `marginalia-projects-v3` local library is assigned to the first account that signs in after this update. It is then stored under that account's key and removed from the unscoped key, so later accounts on the same browser do not inherit it. Keep a backup before testing account changes if the browser contains valuable writing.
+The old unscoped `marginalia-projects-v3` library is assigned to the first account that signs in after this change and moved to that account's key. Back up valuable writing before testing account changes. If Supabase is unavailable, the local copy remains available and the app reports the sync problem. Conflicting changes to the same project still use project-level last-sync-wins rather than per-document conflict resolution.
 
-The local copy remains useful as a cache. If Supabase cannot be reached at sign-in, the app opens that account's local copy and explicitly reports that it is offline; changes remain local until the user signs in again while online. If initial sync fails after loading, the app likewise opens and reports the sync issue in the save status. Conflicting edits to the same entry currently use project-level last-content-sync-wins; this is not yet per-document conflict resolution.
+## Analyzer behavior
 
-## Initial endpoint
+The analyzer currently uses deterministic mock logic, not a language model or paid AI provider. It recognizes supported character nicknames and contextual patterns for new character, location, item, and Lore cards. Lore types include factions, creatures, systems, and concepts. All proposals stay pending until reviewed; ambiguous prose may be missed or misclassified.
 
-`POST /functions/v1/analyze-scene`
+## Database
 
-Request:
+For a new database, run [`supabase/schema.sql`](./supabase/schema.sql) in the Supabase SQL Editor.
 
-```json
-{
-  "bookId": "book-uuid",
-  "documentId": "scene-uuid",
-  "text": "Mira touched the scar above her left eye.",
-  "entities": [
-    { "id": "character-uuid", "kind": "character", "name": "Mira" }
-  ]
-}
-```
+For the existing database, the migration sequence is:
 
-The request requires `Authorization: Bearer <supabase-access-token>`.
+1. [`002_client_keys.sql`](./supabase/migrations/002_client_keys.sql)
+2. [`003_document_word_goal.sql`](./supabase/migrations/003_document_word_goal.sql)
+3. [`004_lore_entity_kind.sql`](./supabase/migrations/004_lore_entity_kind.sql)
+4. [`005_persist_memory_review.sql`](./supabase/migrations/005_persist_memory_review.sql)
+5. [`006_memory_review_source_line.sql`](./supabase/migrations/006_memory_review_source_line.sql)
 
-Response:
+The user reported applying migrations 002 through 005 and then resolved the missing `source_line` column with migration 006. The working Memory Review flow confirms the app can now read and write the required suggestion data. If recreating a database, apply all migrations in order rather than relying on this existing-project history.
 
-```json
-{
-  "suggestions": [
-    {
-      "id": "mock-...",
-      "type": "character_update",
-      "entityId": "character-uuid",
-      "field": "physical",
-      "operation": "append",
-      "value": "A scar above the left eye.",
-      "evidence": "Mira touched the scar above her left eye.",
-      "confidence": 0.91,
-      "status": "pending"
-    }
-  ],
-  "analysis": { "mode": "mock", "entitiesChecked": 1 }
-}
-```
+Migration 006 is idempotent and asks PostgREST to reload its schema cache. It adds `source_line integer not null default 1` to `public.ai_suggestions`.
 
-The analyzer uses deterministic mock logic, not a language model. It recognizes saved character nicknames as aliases and can propose new character, location, item, and Lore cards from supported context patterns. Lore cards can represent factions, creatures, systems, or general concepts. New cards and their linked detail suggestions remain pending until approved in Memory Review. These patterns can miss or misclassify ambiguous prose and do not require an AI API key.
+## Edge Function
 
-## Local setup
+The deployed endpoint is `POST /functions/v1/analyze-scene`. Its source is [`supabase/functions/analyze-scene/index.ts`](./supabase/functions/analyze-scene/index.ts), which imports [`mock-helpers.mjs`](./supabase/functions/analyze-scene/mock-helpers.mjs).
 
-1. Create a Supabase project.
-2. For a new database, apply `supabase/schema.sql` in the SQL editor. For the existing project, apply migrations 002 through 006 in order; if migrations 002 through 005 are already applied, apply `supabase/migrations/006_memory_review_source_line.sql`.
-3. Deploy `supabase/functions/analyze-scene/index.ts` together with its imported `mock-helpers.mjs` file.
-4. Add the project URL and anon key through environment-specific configuration, never hardcoded secrets.
-5. Verify authenticated sync and row-level-security behavior with separate user accounts before using real writing data.
+Deploy the function separately from GitHub Pages, and include both files. No redeploy is needed for frontend-only changes; redeploy when either function source file changes.
 
-## Focused local tests
+The function requires an authenticated bearer token and checks that the requested book belongs to that user. The browser's analysis request must not send the `Prefer` header; that header is not included in the Edge Function's CORS allowlist.
+
+## Local tests
 
 Run from the project folder:
 
@@ -75,4 +56,12 @@ node supabase/v2-adapter.test.js
 node supabase/functions/analyze-scene/mock-helpers.test.mjs
 ```
 
-The adapter tests cover cloud-to-local restoration, merge behavior, upserts, and propagation of deleted rows. They use mocked HTTP responses; they do not replace an end-to-end test against the configured Supabase project.
+These are focused local tests with mocked HTTP responses. They do not verify the live Supabase project, RLS policies, deployed function, GitHub Pages cache, or browser layout.
+
+## Deployment responsibilities
+
+- **Frontend:** push the intended `index.html` and adapter changes to the repository; GitHub Pages publishes the site.
+- **Database:** run a required SQL migration once in the Supabase SQL Editor.
+- **Edge Function:** deploy its entry point and imported helper separately in Supabase when changed.
+
+Never place service-role keys, database passwords, or user access tokens in the repository.

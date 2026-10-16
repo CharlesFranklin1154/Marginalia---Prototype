@@ -14,11 +14,11 @@ Marginalia is a calm, literary writing workbench that lets the writer do the wri
 
 - Workspace: `C:\Users\CFran\Web Designs\Marginalia`
 - Main app: `index.html`
-- V1 storage: localStorage, retained as the local/offline source of truth for now
+- Storage: account-scoped localStorage cache plus Supabase persistence; local-first/offline behavior remains
 - Git branch: `main`
-- Last confirmed pushed commit: `Added a password reset function`
-- Character nickname and Lore-card changes are currently local and uncommitted; Pages and Supabase have not received them
-- GitHub publishing is separate from Supabase Edge Function deployment
+- Last checked commit: `d495f5e` (`Najor Memory card fix for to many prompts showing up.`), with `main` matching `origin/main`
+- The working tree was clean at the last repository check; project documentation is now being aligned
+- GitHub Pages, database migrations, and Supabase Edge Function deployments are separate
 
 ## Current Frontend Features
 
@@ -63,10 +63,10 @@ A publishable browser key is configured in `index.html`. Never put service-role 
 
 Completed backend work:
 
-- The schema and migrations `002_client_keys.sql` and `003_document_word_goal.sql` were applied; the user confirmed migration 003.
-- Authenticated books, entities, documents, and Brain Dumps have populated successfully.
-- The `analyze-scene` Edge Function is deployed, but the current local changes to its analyzer helper still need a separate redeploy.
-- `supabase/migrations/004_lore_entity_kind.sql` is new and has not yet been applied to the hosted project.
+- The user confirmed applying migrations 002 through 005, then applied migration 006 after Memory Review reported the missing `ai_suggestions.source_line` column.
+- The user confirmed that library saves reach Supabase and Memory Review works after the database fix.
+- The deployed `analyze-scene` function is reachable from the published app; analysis requests no longer include the unsupported `Prefer` header.
+- Authenticated books, entities, documents, Brain Dumps, suggestions, and review decisions have been exercised through the app.
 
 The adapter syncs local character nicknames and Lore card fields into `entities.data`. Analysis sends those saved entity details to the authenticated Edge Function. Approved provenance remains attached to each local card.
 
@@ -80,10 +80,9 @@ The analyzer uses deterministic heuristics, not a paid model. It recognizes supp
 - Entity discovery uses conservative deterministic name/context heuristics, not a language model; it can miss names and misclassify ambiguous phrases, so review approval remains required.
 - Character nickname aliases resolve to their canonical cards; Lore discovery supports faction, creature, system, and concept cards but still uses limited phrase patterns.
 - New Lore cards and their evidence-based updates are handled through Memory Review approval.
-- The review panel and history are functional but still need a UX polish pass.
+- The review panel has a bounded scroll area; resolved suggestions animate out of the pending list and remain in approved/rejected history. Verify the latest UX in the published browser app.
 - The current provenance link is implemented for character-sheet updates first.
-- `V2_SETUP.md` and older handoff sections may still describe completed review and adapter work as future work; keep them aligned when next editing setup documentation.
-- Supabase Edge Function files show Deno/import diagnostics in the normal VS Code checker because the local editor is not configured with the Deno runtime. Supabase deployment is the authoritative check for that function.
+- `README.md` and `V2_SETUP.md` summarize current status, setup, deployment boundaries, and next steps. Keep them aligned as work proceeds.
 - The mock login/testing bypass should eventually be removed or clearly isolated before real public use.
 - Password recovery requires the deployed Marginalia URL to be allowed in Supabase Auth URL Configuration; live email delivery and password updates still need testing.
 - The old `books.brain_dump` column remains for compatibility; new Brain Dumps are individual `documents` rows with `kind = 'brain_dump'`.
@@ -91,15 +90,13 @@ The analyzer uses deterministic heuristics, not a paid model. It recognizes supp
 
 ## Immediate Next Steps
 
-1. Apply `supabase/migrations/004_lore_entity_kind.sql` to the hosted Supabase project.
-2. Commit and push the UI/adapter changes, then separately redeploy `supabase/functions/analyze-scene/index.ts` so nicknames and Lore are available to live Memory Review.
-3. Test a nickname, new faction, creature, and system in Memory Review; approve cards and details, then verify their local and Supabase records.
-4. Test password recovery on the published site after allowlisting its URL under Supabase Authentication > URL Configuration > Redirect URLs.
-5. Smoke-test the writer in a browser: wrapped paragraphs, headings, Title, Code Block, Verse, font-size changes, line-number alignment, goal feedback, and mobile layout.
-6. Set and save a word goal, then verify the matching `documents.word_goal` value in Supabase.
-7. Continue review-panel UX polish and test pending, approved, and rejected history states.
-8. Before public use, remove or clearly isolate the testing bypass and review auth/data access.
-9. Treat a real AI provider as future work; establish budget limits, throttling, chunking, and settings before enabling paid model calls.
+1. Visually test the published Memory Review panel with a long list: scroll, approve/reject, confirm the resolved card collapses smoothly, and confirm other cards move up.
+2. Re-run Memory Review on the same passage and confirm the approved/rejected decision persists in history and Supabase.
+3. Smoke-test cloud restore, offline saves, deletion reconciliation, and account isolation; back up valuable writing before changing accounts.
+4. Test password recovery on the published site and verify its redirect URL is allowed under Supabase Authentication > URL Configuration.
+5. Smoke-test the writer at desktop and mobile widths, especially wrapped paragraphs, named styles, line-number alignment, and word-goal feedback.
+6. Before public use, remove or clearly isolate the testing bypass and review authentication and RLS behavior.
+7. Keep a real AI provider as future work until privacy, budget limits, throttling, and usage settings are defined.
 
 ## Safe Working Process
 
@@ -140,9 +137,12 @@ Useful restart prompt:
 - Fixed item suggestions to use the visible Notes field and preserved provenance when editing location/item cards.
 - Fixed provenance array checking so approved detail suggestions do not throw.
 - Validated candidate extraction and screenshot-inspired cases, create-then-detail approvals for all three card types, embedded-script syntax, adapter/analyzer tests, editor diagnostics, and `git diff --check`.
-- The Edge Function change still needs deployment; Pages publishing does not deploy Supabase functions.
 - Validated the local recovery screens, embedded-script syntax, adapter and analyzer tests, editor diagnostics, and `git diff --check`.
+- Fixed empty successful REST responses, removed the unsupported `Prefer` header from Edge Function requests, and added migration `006_memory_review_source_line.sql` for existing databases.
+- The user confirmed cloud saves and Memory Review work after applying migration 006.
+- Added Memory Review scrolling and a smooth pending-card dismissal for saved approvals/rejections; browser visual QA of the published UX remains next.
+- Added the root `README.md` and aligned this handoff and `V2_SETUP.md` with the confirmed deployed state and remaining checks.
 
 ## Next unchecked task
 
-- Apply migration `004_lore_entity_kind.sql`, deploy the updated `analyze-scene` Edge Function, then test nickname/Lore sync and review approval on the published app.
+- Complete the published-site Memory Review UX smoke test and record whether the latest scroll/dismiss animation is live.
