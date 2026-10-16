@@ -81,10 +81,14 @@
       assertAuthContext(context);
       throw new Error(`V2 request failed: ${response.status} ${detail.slice(0, 300)}`);
     }
-    if (response.status === 204) return null;
-    const data = await response.json();
+    const responseText = await response.text();
     assertAuthContext(context);
-    return data;
+    if (!responseText.trim()) return null;
+    try {
+      return JSON.parse(responseText);
+    } catch (error) {
+      throw new Error(`V2 request returned invalid JSON: ${error.message}`);
+    }
   }
 
   function projectPayload(project) {
@@ -409,12 +413,6 @@
   async function analyzeScene(payload, context = captureAuthContext()) {
     if (!isConfigured()) throw new Error('Marginalia V2 backend is not configured.');
     assertAuthContext(context);
-    if (window.marginaliaSupabaseClient) {
-      const { data, error } = await window.marginaliaSupabaseClient.functions.invoke('analyze-scene', { body: payload });
-      assertAuthContext(context);
-      if (error) throw new Error(error.message || 'The analyze-scene function failed.');
-      return data;
-    }
     const requestHeaders = headers();
     requestHeaders.Authorization = `Bearer ${context.accessToken}`;
     const response = await fetch(`${context.url}/functions/v1/analyze-scene`, {
@@ -422,8 +420,20 @@
       headers: requestHeaders,
       body: JSON.stringify(payload),
     });
-    if (!response.ok) throw new Error(`Scene analysis failed: ${response.status}`);
-    return response.json();
+    assertAuthContext(context);
+    const responseText = await response.text();
+    assertAuthContext(context);
+    if (!response.ok) {
+      throw new Error(`Scene analysis failed: ${response.status} ${responseText.slice(0, 300)}`);
+    }
+    if (!responseText.trim()) {
+      throw new Error(`Scene analysis returned an empty response (HTTP ${response.status}).`);
+    }
+    try {
+      return JSON.parse(responseText);
+    } catch (error) {
+      throw new Error(`Scene analysis returned invalid JSON: ${error.message}`);
+    }
   }
 
   async function analyzeProjectEntry(project, entry) {

@@ -321,35 +321,31 @@ assert.deepEqual(merged[0].chapters.map(entry => entry._id), ['shared', 'remote-
 
     global.MarginaliaV2.setAccessToken('test-access-token');
     const suggestionStore = new Map();
-    global.window = {
-      marginaliaSupabaseClient: {
-        functions: {
-          invoke: async () => ({
-            data: {
-              suggestions: [{
-                id: 'mock-suggestion',
-                type: 'character_update',
-                entityId: 'entity-ai',
-                field: 'physical',
-                operation: 'append',
-                value: 'A scar above the left eye.',
-                evidence: 'Mira touched the scar above her left eye.',
-                sourceText: 'Mira touched the scar above her left eye.',
-                sourceLine: 2,
-                confidence: 0.91,
-                status: 'pending',
-              }],
-              analysis: { mode: 'mock', entitiesChecked: 1 },
-            },
-            error: null,
-          }),
-        },
-      },
-    };
+    global.window = {};
+    let emptyAnalysisResponse = false;
     global.fetch = async (input, options = {}) => {
       const url = new URL(input);
       const method = options.method || 'GET';
       const path = url.pathname;
+      if (method === 'POST' && path.endsWith('/functions/v1/analyze-scene')) {
+        if (emptyAnalysisResponse) return new Response(null, { status: 200 });
+        return Response.json({
+          suggestions: [{
+            id: 'mock-suggestion',
+            type: 'character_update',
+            entityId: 'entity-ai',
+            field: 'physical',
+            operation: 'append',
+            value: 'A scar above the left eye.',
+            evidence: 'Mira touched the scar above her left eye.',
+            sourceText: 'Mira touched the scar above her left eye.',
+            sourceLine: 2,
+            confidence: 0.91,
+            status: 'pending',
+          }],
+          analysis: { mode: 'mock', entitiesChecked: 1 },
+        });
+      }
       if (method === 'POST' && path.endsWith('/books')) {
         return Response.json([{ id: 'book-ai', client_key: 'project-ai' }], { status: 201 });
       }
@@ -359,7 +355,7 @@ assert.deepEqual(merged[0].chapters.map(entry => entry._id), ['shared', 'remote-
         for (const row of JSON.parse(options.body)) {
           if (!suggestionStore.has(row.client_key)) suggestionStore.set(row.client_key, { ...row, id: 'audit-' + suggestionStore.size, reviewed_at: null });
         }
-        return new Response(null, { status: 204 });
+        return new Response(null, { status: 201 });
       }
       if (method === 'PATCH' && path.endsWith('/ai_suggestions')) {
         const match = url.searchParams.get('client_key') || '';
@@ -417,6 +413,11 @@ assert.deepEqual(merged[0].chapters.map(entry => entry._id), ['shared', 'remote-
     await global.MarginaliaV2.persistSuggestionStatuses(reviewProject, reviewEntry, afterApproval.suggestions, 'rejected');
     const afterRejection = await global.MarginaliaV2.analyzeProjectEntry(reviewProject, reviewEntry);
     assert.equal(afterRejection.suggestions[0].status, 'rejected');
+    emptyAnalysisResponse = true;
+    await assert.rejects(
+      global.MarginaliaV2.analyzeProjectEntry(reviewProject, reviewEntry),
+      /Scene analysis returned an empty response \(HTTP 200\)/,
+    );
   } finally {
     global.fetch = originalFetch;
     if (originalWindow === undefined) delete global.window;
