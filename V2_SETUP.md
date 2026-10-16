@@ -61,7 +61,7 @@ The analyzer uses deterministic mock logic, not a language model. It recognizes 
 ## Local setup
 
 1. Create a Supabase project.
-2. For a new database, apply `supabase/schema.sql` in the SQL editor. For the existing project, apply migrations 002 through 005 in order; if migrations 002, 003, and 004 are already applied, apply `supabase/migrations/005_persist_memory_review.sql`.
+2. For a new database, apply `supabase/schema.sql` in the SQL editor. For the existing project, apply migrations 002 through 006 in order; if migrations 002 through 005 are already applied, apply `supabase/migrations/006_memory_review_source_line.sql`.
 3. Deploy `supabase/functions/analyze-scene/index.ts` together with its imported `mock-helpers.mjs` file.
 4. Add the project URL and anon key through environment-specific configuration, never hardcoded secrets.
 5. Verify authenticated sync and row-level-security behavior with separate user accounts before using real writing data.
