@@ -328,6 +328,7 @@ assert.deepEqual(merged[0].chapters.map(entry => entry._id), ['shared', 'remote-
       const method = options.method || 'GET';
       const path = url.pathname;
       if (method === 'POST' && path.endsWith('/functions/v1/analyze-scene')) {
+        assert.equal(options.headers.Prefer, undefined);
         if (emptyAnalysisResponse) return new Response(null, { status: 200 });
         return Response.json({
           suggestions: [{

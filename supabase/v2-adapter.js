@@ -414,6 +414,7 @@
     if (!isConfigured()) throw new Error('Marginalia V2 backend is not configured.');
     assertAuthContext(context);
     const requestHeaders = headers();
+    delete requestHeaders.Prefer;
     requestHeaders.Authorization = `Bearer ${context.accessToken}`;
     const response = await fetch(`${context.url}/functions/v1/analyze-scene`, {
       method: 'POST',
