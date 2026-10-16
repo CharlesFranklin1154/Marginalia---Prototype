@@ -328,14 +328,18 @@
   .source-provenance a { color: var(--slate-deep); cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
   .source-provenance a:hover { color: var(--ink); }
   .rich-editor.source-focus { outline: 2px solid var(--moss); outline-offset: -2px; }
-  .ai-review-panel { display: none; margin-top: 14px; padding: 14px; border: 1px solid var(--paper-edge); border-radius: 8px; background: var(--bg); }
+  .ai-review-panel { display: none; max-height: min(48vh, 520px); overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; margin-top: 14px; padding: 14px; border: 1px solid var(--paper-edge); border-radius: 8px; background: var(--bg); }
   .ai-review-panel.show { display: block; }
-  .ai-review-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 9px; }
+  .ai-review-header { position: sticky; top: -14px; z-index: 1; display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: -14px -14px 9px; padding: 12px 14px 9px; background: var(--bg); }
   .ai-review-title { font-family: var(--font-serif); color: var(--ink); font-size: 0.95rem; }
   .ai-review-status { color: var(--ink-faint); font-size: 0.75rem; }
   .ai-review-close { flex: 0 0 auto; padding: 2px 8px; line-height: 1; }
   .ai-review-list { display: flex; flex-direction: column; gap: 8px; }
-  .ai-suggestion { padding: 10px 11px; border: 1px solid var(--paper-edge); border-radius: 6px; background: var(--paper); }
+  .ai-review-panel, .ai-review-history { scrollbar-width: thin; scrollbar-color: var(--ink-faint) transparent; }
+  .ai-review-panel::-webkit-scrollbar, .ai-review-history::-webkit-scrollbar { width: 7px; }
+  .ai-review-panel::-webkit-scrollbar-thumb, .ai-review-history::-webkit-scrollbar-thumb { border-radius: 8px; background: var(--ink-faint); }
+  .ai-suggestion { padding: 10px 11px; border: 1px solid var(--paper-edge); border-radius: 6px; background: var(--paper); transition: height 0.32s cubic-bezier(.2, 1, .3, 1), padding 0.32s ease, margin 0.32s ease, border-width 0.32s ease, opacity 0.22s ease, transform 0.32s cubic-bezier(.2, 1, .3, 1); }
+  .ai-suggestion.is-resolving { min-height: 0; padding-top: 0; padding-bottom: 0; border-width: 0; opacity: 0; transform: translateX(32px); }
   .ai-suggestion-text { color: var(--ink-soft); font-size: 0.8rem; line-height: 1.5; }
   .ai-suggestion-evidence { margin-top: 5px; color: var(--ink-faint); font-size: 0.72rem; font-style: italic; }
   .ai-suggestion-actions { display: flex; gap: 7px; margin-top: 9px; }
@@ -347,6 +351,9 @@
   .ai-review-history-item { padding: 7px 8px; border-radius: 6px; background: var(--paper); border: 1px solid var(--paper-edge); }
   .ai-review-history-item .label { font-size: 0.68rem; color: var(--slate-deep); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 3px; }
   .ai-review-history-item .text { font-size: 0.74rem; color: var(--ink-soft); line-height: 1.4; }
+  @media (prefers-reduced-motion: reduce) {
+    .ai-suggestion { transition: none; }
+  }
 
   /* ---------- Generic modal ---------- */
   .overlay { position: fixed; inset: 0; background: rgba(30, 34, 31, 0.38); display: none; align-items: center; justify-content: center; z-index: 30; }
@@ -987,7 +994,7 @@
           <span class="ai-review-status" id="entryAiReviewStatus"></span>
           <button class="btn ghost ai-review-close" id="entryAiReviewCloseBtn" type="button" aria-label="Close memory review" title="Close">&times;</button>
         </div>
-        <div class="ai-review-list" id="entryAiReviewList"></div>
+        <div class="ai-review-list" id="entryAiReviewList" tabindex="0" aria-label="Pending memory suggestions"></div>
         <div class="ai-review-history" id="entryAiReviewHistory"></div>
       </section>
 
@@ -2744,15 +2751,13 @@
   function renderEntryAiReviewHistory() {
     const historyEl = document.getElementById('entryAiReviewHistory');
     if (!historyEl) return;
-    const groups = { pending: [], approved: [], rejected: [] };
+    const groups = { approved: [], rejected: [] };
     entryAiSuggestions.forEach((suggestion) => {
       const status = String(suggestion.status || 'pending').toLowerCase();
       if (groups[status]) groups[status].push(suggestion);
-      else groups.pending.push(suggestion);
     });
     historyEl.innerHTML = '';
     const statuses = [
-      { key: 'pending', label: 'Pending' },
       { key: 'approved', label: 'Approved' },
       { key: 'rejected', label: 'Rejected' },
     ];
@@ -2810,10 +2815,12 @@
       return;
     }
     entryAiSuggestions.forEach((suggestion, index) => {
+      const status = String(suggestion.status || 'pending').toLowerCase();
+      if (status !== 'pending') return;
       const card = document.createElement('div');
       card.className = 'ai-suggestion';
+      if (suggestion.client_key) card.dataset.suggestionKey = suggestion.client_key;
       const isCreate = suggestion.type === 'entity_create';
-      const status = String(suggestion.status || 'pending').toLowerCase();
       const waitingForCard = !isCreate && suggestion.candidateKey && String(suggestion.localEntityKey || '').startsWith('candidate:');
       const targetName = suggestion.entityName || 'this entity';
       const entityKindLabel = ({ character: 'character', location: 'location', item: 'item', lore: 'Lore' })[suggestion.entityKind] || 'entity';
@@ -2840,6 +2847,28 @@
       entryAiReviewList.appendChild(card);
     });
     renderEntryAiReviewHistory();
+  }
+
+  function dismissResolvedSuggestions(suggestions) {
+    const keys = new Set(suggestions.map(suggestion => suggestion.client_key).filter(Boolean));
+    const cards = Array.from(entryAiReviewList.children).filter(card => keys.has(card.dataset.suggestionKey));
+    if (!cards.length || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return Promise.resolve();
+    return Promise.all(cards.map(card => new Promise(resolve => {
+      let finished = false;
+      const finish = () => {
+        if (finished) return;
+        finished = true;
+        resolve();
+      };
+      card.addEventListener('transitionend', event => {
+        if (event.target === card && event.propertyName === 'height') finish();
+      });
+      setTimeout(finish, 420);
+      card.style.height = `${card.getBoundingClientRect().height}px`;
+      card.style.overflow = 'hidden';
+      card.classList.add('is-resolving');
+      requestAnimationFrame(() => { card.style.height = '0px'; });
+    })));
   }
 
   function suggestionAlreadyApplied(entity, suggestion) {
@@ -2875,6 +2904,7 @@
         suggestion.status = status;
         suggestion.reviewed_at = row && row.reviewed_at || new Date().toISOString();
       });
+      await dismissResolvedSuggestions(suggestions);
       return true;
     } catch (error) {
       renderEntryAiReview();
