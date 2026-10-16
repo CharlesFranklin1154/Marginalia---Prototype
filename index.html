@@ -591,11 +591,84 @@
   .ai-autosave-row input { accent-color: var(--slate-deep); }
 
   @media (max-width: 720px) {
-    body { flex-direction: column; }
-    .nav { width: 100%; flex-direction: row; align-items: center; padding: 16px 20px; overflow: visible; }
-    .nav-section, .nav-footer, .brand-sub, .nav-project-block { display: none; }
-    .brand { margin: 0; }
-    .main { padding: 32px 22px; }
+    body { display: block; min-height: 100dvh; height: auto; overflow-x: hidden; }
+    .app-root { flex-direction: column; min-height: 100dvh; min-width: 0; }
+    .nav {
+      width: 100%; flex: 0 0 auto; flex-direction: column; align-items: stretch; gap: 8px;
+      padding: 10px 16px; overflow: visible; border-right: 0; border-bottom: 1px solid var(--line);
+    }
+    .nav-section, .brand-sub, .nav-project-block { display: none; }
+    .nav-project-block.show { display: block; margin: 0; }
+    .nav-project-block.show .nav-current, .nav-project-block.show .nav-subitems { display: none; }
+    .nav-project-nav { margin: 0; }
+    .nav-top-row { margin: 0; }
+    .nav-collapse-btn { display: none; }
+    .brand { margin: 0; font-size: 1.3rem; }
+    .nav-footer {
+      margin: 0; padding-top: 8px; flex-direction: row; align-items: center; justify-content: space-between;
+      gap: 8px; border-top: 1px solid var(--line);
+    }
+    .theme-select { width: auto; min-width: 0; max-width: 42vw; }
+    .nav-footer-row { gap: 0; }
+    .nav-footer-row #moodLabel, .session-email { display: none; }
+    .theme-toggle { margin: 0; }
+    .session-row { flex-direction: row; align-items: center; gap: 12px; padding: 0; margin: 0; border: 0; }
+    .logout-link, .account-delete-link { font-size: 0.72rem; white-space: nowrap; }
+    .main { width: 100%; min-width: 0; max-width: none; padding: 26px 18px 40px; }
+    .header { margin-bottom: 28px; }
+    .header h1 { font-size: 1.7rem; }
+    .shelf-meta { gap: 12px; }
+    .shelf-meta span:last-child { text-align: right; }
+    .grid, .category-grid, .hub-grid { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+    .book {
+      display: flex; align-items: center; gap: 14px; padding: 10px;
+      background: var(--paper); border: 1px solid var(--paper-edge); border-radius: 8px;
+    }
+    .book-cover-hitbox { flex: 0 0 52px; min-width: 0; }
+    .book-cover.placeholder .cover-hint { display: none; }
+    .book-cover.placeholder .cover-icon { font-size: 1.1rem; margin: 0; }
+    .book-title { margin-top: 0; }
+    .book-info { flex: 1; min-width: 0; }
+    .book-title { overflow-wrap: anywhere; }
+    .card.add { min-height: 76px; aspect-ratio: auto; justify-content: flex-start; padding: 16px 20px; }
+    .add-inner { display: flex; align-items: center; gap: 12px; text-align: left; }
+    .add-plus { margin: 0; }
+    .add-label { padding: 0; }
+    .project-header { gap: 14px; margin-bottom: 24px; }
+    .project-title-row { gap: 8px; }
+    .project-title-input { min-width: 0; width: 100%; max-width: 100%; font-size: 1.5rem; }
+    .project-sub { line-height: 1.5; }
+    .resume-banner { align-items: flex-start; gap: 10px; padding: 12px; }
+    .resume-name { font-size: 0.9rem; }
+    .resume-time { font-size: 0.66rem; text-align: right; }
+    .modal.writer.editor-page-content { padding: 12px 14px 0; }
+    .modal.writer.editor-page-content .writer-body { min-width: 0; }
+    .modal.writer.editor-page-content .entry-editor-wrap { min-width: 0; }
+    .modal.writer.editor-page-content .rich-editor { padding: 14px; }
+    .modal.writer.editor-page-content .modal-actions { flex-direction: column; align-items: stretch; gap: 8px; }
+    .modal.writer.editor-page-content .modal-actions-right { justify-content: stretch; }
+    .modal.writer.editor-page-content .modal-actions-right > button { flex: 1 1 auto; padding: 9px 10px; }
+    .field-row { flex-direction: column; gap: 0; }
+    .overlay:not(.editor-page) { padding: 12px; }
+    .modal, .modal.small, .modal.wide { width: 100%; max-width: 100%; max-height: calc(100dvh - 24px); padding: 22px 18px; }
+    .modal.template-page { padding: 22px 18px 0; }
+    .modal.template-page .modal-actions {
+      width: calc(100% + 36px); margin: 18px -18px 0; padding: 12px 18px;
+    }
+    .modal-actions-right { flex-wrap: wrap; }
+  }
+  @media (max-width: 420px) {
+    .main { padding-right: 14px; padding-left: 14px; }
+    .nav { padding-right: 12px; padding-left: 12px; }
+    .nav-footer { gap: 6px; }
+    .session-row { gap: 8px; }
+    .logout-link, .account-delete-link { font-size: 0.68rem; }
+    .project-header { gap: 10px; }
+    .project-cover-mini { width: 52px; height: 78px; }
+    .project-title-input { font-size: 1.3rem; }
+    .entry-line-numbers { flex-basis: 34px; }
+    .modal.writer.editor-page-content .modal-actions-right { gap: 5px; }
+    .modal.writer.editor-page-content .modal-actions-right > button { padding: 8px 7px; font-size: 0.76rem; }
   }
 
   /* ---------- Login screen ---------- */
@@ -2307,8 +2380,10 @@
             ${p.cover ? '' : coverInnerHTML()}
           </div>
         </div>
-        <div class="book-title">${p.title}</div>
-        <div class="book-meta">opened ${timeAgo(p.updated)}</div>
+        <div class="book-info">
+          <div class="book-title">${p.title}</div>
+          <div class="book-meta">opened ${timeAgo(p.updated)}</div>
+        </div>
       `;
       el.querySelector('.book-cover-hitbox').addEventListener('click', (e) => {
         if (e.target.closest('.book-delete')) return;

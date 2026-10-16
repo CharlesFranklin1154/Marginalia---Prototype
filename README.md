@@ -51,6 +51,7 @@ The tests use mocked HTTP responses. They do not replace a live Supabase check.
 5. Before public use, review row-level security policies.
 6. Verify account deletion on a disposable account after deploying both the frontend and `delete-account` function.
 7. Treat a real AI provider as future work; decide on limits, privacy behavior, and cost controls before enabling paid calls.
+8. Continue mobile QA on real phones, especially the writer drawer, editor actions, and entity-card flows; mobile layouts now use one column and avoid page-level horizontal scrolling.
 
 ## Publishing
 
