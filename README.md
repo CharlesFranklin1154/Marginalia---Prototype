@@ -48,7 +48,7 @@ The tests use mocked HTTP responses. They do not replace a live Supabase check.
 2. Re-run Memory Review on the same passage and confirm saved decisions persist.
 3. Smoke-test sync, restore, deletion, and account isolation with care; back up valuable writing before changing accounts. Isolation means a separate test account should not see the first account's library: create a uniquely named test book under the test account, then sign back into the original account and confirm that test book is absent.
 4. Verify password recovery and email confirmation redirects in Supabase Auth; the published site URL must be configured and allowed.
-5. Before public use, review row-level security and remove or clearly isolate the temporary admin testing bypass.
+5. Before public use, review row-level security policies.
 6. Verify account deletion on a disposable account after deploying both the frontend and `delete-account` function.
 7. Treat a real AI provider as future work; decide on limits, privacy behavior, and cost controls before enabling paid calls.
 

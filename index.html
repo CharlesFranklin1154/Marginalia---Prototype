@@ -633,13 +633,6 @@
   .login-recovery-copy { margin-bottom: 20px; text-align: center; color: var(--ink-soft); font-size: 0.84rem; line-height: 1.5; }
   .login-card [hidden] { display: none !important; }
 
-  .login-divider { display: flex; align-items: center; gap: 10px; margin: 26px 0 18px; color: var(--ink-faint); font-size: 0.72rem; }
-  .login-divider::before, .login-divider::after { content: ''; flex: 1; height: 1px; background: var(--line); }
-
-  .admin-bypass-box { border: 1.5px dashed var(--line); border-radius: 8px; padding: 14px 16px; text-align: center; }
-  .admin-bypass-box button { width: 100%; }
-  .admin-note { font-size: 0.68rem; color: var(--ink-faint); margin-top: 8px; line-height: 1.5; }
-
   .session-row { display: flex; flex-direction: column; gap: 4px; font-size: 0.74rem; color: var(--ink-faint); padding-top: 10px; margin-top: 4px; border-top: 1px solid var(--line); }
   .session-email { color: var(--ink-soft); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .logout-link { background: none; border: none; color: var(--ink-faint); font-size: 0.74rem; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; padding: 0; text-align: left; }
@@ -693,12 +686,6 @@
         <button class="login-link" id="cancelPasswordRecoveryBtn" type="button">Back to log in</button>
       </div>
 
-      <div class="login-divider" id="loginDivider">FOR TESTING</div>
-
-      <div class="admin-bypass-box" id="adminBypassBox">
-        <button class="btn ghost" id="adminBypassBtn" type="button">Continue as Admin (skip login)</button>
-        <div class="admin-note">Temporary while we design &mdash; this button and the plain-text login below will be removed before real users touch this.</div>
-      </div>
     </div>
   </div>
 
@@ -1509,8 +1496,6 @@
   const confirmNewPasswordInput = document.getElementById('confirmNewPassword');
   const saveNewPasswordBtn = document.getElementById('saveNewPasswordBtn');
   const cancelPasswordRecoveryBtn = document.getElementById('cancelPasswordRecoveryBtn');
-  const loginDivider = document.getElementById('loginDivider');
-  const adminBypassBox = document.getElementById('adminBypassBox');
   const sessionEmail = document.getElementById('sessionEmail');
   const passwordRecoveryFromUrl = new URLSearchParams(window.location.hash.slice(1)).get('type') === 'recovery';
   let passwordRecoveryEvent = false;
@@ -1538,8 +1523,6 @@
     backToLoginBtn.hidden = view !== 'request';
     passwordRequestCopy.hidden = view !== 'request';
     passwordRecoveryPanel.hidden = view !== 'update';
-    loginDivider.hidden = view !== 'login';
-    adminBypassBox.hidden = view !== 'login';
     if (view === 'request') loginSubmitBtn.textContent = 'Send reset link';
     else if (view === 'login') loginSubmitBtn.textContent = authMode === 'login' ? 'Log in' : 'Create account';
     hideLoginError();
@@ -1579,8 +1562,7 @@
   function revealApp(email, accessToken) {
     loginScreen.classList.add('hidden');
     appRoot.classList.remove('hidden');
-    sessionEmail.textContent = email === 'admin-test@local' ? 'Admin (testing)' : email;
-    document.getElementById('deleteAccountBtn').hidden = email === 'admin-test@local';
+    sessionEmail.textContent = email;
     window.MarginaliaV2.setAccessToken(accessToken || '');
     try { localStorage.setItem('marginalia-session', email); } catch (e) {}
   }
@@ -1656,24 +1638,6 @@
     renderLibrary();
     repaint();
     revealApp(user.email, session.access_token);
-  }
-
-  function activateLocalTestApp() {
-    const legacyStorageKey = 'marginalia-projects-v3';
-    window.MarginaliaV2.clearPendingSync();
-    window.MarginaliaV2.setCloudReady(false);
-    window.MarginaliaV2.setAccessToken('');
-    activeStorageKey = legacyStorageKey;
-    try {
-      const saved = localStorage.getItem(legacyStorageKey);
-      projects = normalizeProjects(saved ? JSON.parse(saved) : []);
-    } catch (error) {
-      showLoginError(`Could not read the local testing library: ${error.message}`);
-      return;
-    }
-    renderLibrary();
-    setSaveStatus('saved', 'Local testing mode; changes stay on this device');
-    revealApp('admin-test@local');
   }
 
   loginSubmitBtn.addEventListener('click', async () => {
@@ -1758,8 +1722,6 @@
       setAuthView('login');
     }
   });
-
-  document.getElementById('adminBypassBtn').addEventListener('click', activateLocalTestApp);
 
   document.getElementById('logoutBtn').addEventListener('click', async () => {
     await supabaseClient.auth.signOut();
