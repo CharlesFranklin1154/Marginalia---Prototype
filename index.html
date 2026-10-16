@@ -644,6 +644,8 @@
   .session-email { color: var(--ink-soft); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .logout-link { background: none; border: none; color: var(--ink-faint); font-size: 0.74rem; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; padding: 0; text-align: left; }
   .logout-link:hover { color: var(--rust-deep); }
+  .account-delete-link { background: none; border: none; color: var(--rust-deep); font-size: 0.7rem; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; padding: 0; text-align: left; }
+  .account-delete-link:hover { color: var(--rust); }
   .nav.collapsed .session-row .session-email, .nav.collapsed .session-row .logout-text { display: none; }
 </style>
 </head>
@@ -754,6 +756,7 @@
       <div class="session-row">
         <span class="session-email nav-text" id="sessionEmail">&nbsp;</span>
         <button class="logout-link nav-text" id="logoutBtn" type="button">Log out</button>
+        <button class="account-delete-link nav-text" id="deleteAccountBtn" type="button">Delete account</button>
       </div>
     </div>
   </nav>
@@ -1388,6 +1391,30 @@
     </div>
   </div>
 
+  <div class="overlay" id="deleteAccountOverlay">
+    <div class="modal small">
+      <div class="danger-modal-icon">&#9888;&#65039;</div>
+      <h2>Delete your account?</h2>
+      <p class="hint">This permanently deletes your account and every book, chapter, scene, entity, and Memory Review record stored in Supabase. This cannot be undone. Your local library on this device will also be removed. Other devices may retain local copies.</p>
+      <div class="field">
+        <label for="deleteAccountPassword">Enter your password to confirm your identity</label>
+        <input id="deleteAccountPassword" type="password" autocomplete="current-password">
+      </div>
+      <div class="field">
+        <label for="deleteAccountConfirmation">Type DELETE to confirm</label>
+        <input id="deleteAccountConfirmation" type="text" autocomplete="off">
+      </div>
+      <div class="login-error" id="deleteAccountError" role="alert"></div>
+      <div class="modal-actions">
+        <span></span>
+        <div class="modal-actions-right">
+          <button class="btn ghost" id="deleteAccountCancel" type="button">Cancel</button>
+          <button class="btn danger" id="deleteAccountConfirm" type="button">Delete account permanently</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- AI Assist settings -->
   <div class="overlay" id="aiSettingsOverlay">
     <div class="modal">
@@ -1553,6 +1580,7 @@
     loginScreen.classList.add('hidden');
     appRoot.classList.remove('hidden');
     sessionEmail.textContent = email === 'admin-test@local' ? 'Admin (testing)' : email;
+    document.getElementById('deleteAccountBtn').hidden = email === 'admin-test@local';
     window.MarginaliaV2.setAccessToken(accessToken || '');
     try { localStorage.setItem('marginalia-session', email); } catch (e) {}
   }
@@ -1747,6 +1775,101 @@
     loginScreen.classList.remove('hidden');
     loginEmail.value = ''; loginPassword.value = '';
     setAuthMode('login');
+  });
+
+  const deleteAccountOverlay = document.getElementById('deleteAccountOverlay');
+  const deleteAccountPassword = document.getElementById('deleteAccountPassword');
+  const deleteAccountConfirmation = document.getElementById('deleteAccountConfirmation');
+  const deleteAccountError = document.getElementById('deleteAccountError');
+  const deleteAccountConfirm = document.getElementById('deleteAccountConfirm');
+
+  function closeDeleteAccountDialog() {
+    deleteAccountOverlay.classList.remove('show');
+    deleteAccountPassword.value = '';
+    deleteAccountConfirmation.value = '';
+    deleteAccountError.textContent = '';
+    deleteAccountError.classList.remove('show');
+    deleteAccountConfirm.disabled = false;
+    deleteAccountConfirm.textContent = 'Delete account permanently';
+  }
+
+  document.getElementById('deleteAccountBtn').addEventListener('click', () => {
+    deleteAccountOverlay.classList.add('show');
+    deleteAccountPassword.focus();
+  });
+  document.getElementById('deleteAccountCancel').addEventListener('click', closeDeleteAccountDialog);
+  deleteAccountOverlay.addEventListener('click', (event) => {
+    if (event.target === deleteAccountOverlay) closeDeleteAccountDialog();
+  });
+  deleteAccountConfirm.addEventListener('click', async () => {
+    if (deleteAccountConfirmation.value !== 'DELETE') {
+      deleteAccountError.textContent = 'Type DELETE exactly to confirm account deletion.';
+      deleteAccountError.classList.add('show');
+      return;
+    }
+    if (!deleteAccountPassword.value) {
+      deleteAccountError.textContent = 'Enter your password to confirm your identity.';
+      deleteAccountError.classList.add('show');
+      return;
+    }
+    deleteAccountError.textContent = '';
+    deleteAccountError.classList.remove('show');
+    deleteAccountConfirm.disabled = true;
+    deleteAccountConfirm.textContent = 'Deleting account...';
+    try {
+      const { data: { session }, error: sessionError } = await supabaseClient.auth.getSession();
+      if (sessionError) throw sessionError;
+      if (!session) throw new Error('Your session has expired. Log in again before deleting your account.');
+      if (!session.user.email) throw new Error('This account has no email address and cannot be deleted from this screen.');
+
+      const { error: reauthError } = await supabaseClient.auth.signInWithPassword({
+        email: session.user.email,
+        password: deleteAccountPassword.value,
+      });
+      if (reauthError) throw new Error(`Could not verify your password: ${reauthError.message}`);
+
+      const { error: deletionError } = await supabaseClient.functions.invoke('delete-account');
+      if (deletionError) throw new Error(`Could not delete your account: ${deletionError.message}`);
+
+      const accountStorageKey = `marginalia-projects-v3:user:${session.user.id}`;
+      let cleanupWarning = false;
+      try {
+        localStorage.removeItem(accountStorageKey);
+        localStorage.removeItem(`${accountStorageKey}:deletions`);
+        localStorage.removeItem('marginalia-session');
+      } catch (storageError) {
+        cleanupWarning = true;
+        console.error('Marginalia account deleted, but local account data could not be fully cleared:', storageError);
+      }
+      window.MarginaliaV2.clearPendingSync();
+      window.MarginaliaV2.setCloudReady(false);
+      window.MarginaliaV2.setAccessToken('');
+      try {
+        const { error: signOutError } = await supabaseClient.auth.signOut({ scope: 'local' });
+        if (signOutError) throw signOutError;
+      } catch (signOutError) {
+        cleanupWarning = true;
+        console.error('Marginalia account deleted, but the local session could not be cleared:', signOutError);
+      }
+      closeDeleteAccountDialog();
+      activeStorageKey = 'marginalia-projects-v3';
+      activeProjectId = null;
+      projects = [];
+      renderLibrary();
+      appRoot.classList.add('hidden');
+      loginScreen.classList.remove('hidden');
+      loginEmail.value = '';
+      loginPassword.value = '';
+      setAuthMode('login');
+      showLoginNotice(cleanupWarning
+        ? 'Your account and cloud library were deleted, but this device could not fully clear its local data. Reload and clear this site’s stored data if the account remains signed in.'
+        : 'Your account and cloud library have been permanently deleted.');
+    } catch (error) {
+      deleteAccountError.textContent = error.message || 'Could not delete your account. Try again.';
+      deleteAccountError.classList.add('show');
+      deleteAccountConfirm.disabled = false;
+      deleteAccountConfirm.textContent = 'Delete account permanently';
+    }
   });
 
   // Recovery links create a temporary session that must stay on the password form.

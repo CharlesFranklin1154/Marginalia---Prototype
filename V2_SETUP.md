@@ -53,6 +53,14 @@ In Supabase Dashboard, open **Authentication → URL Configuration**. Set **Site
 
 Email confirmation links are single-use and expire. If a link returns `otp_expired`, request a fresh confirmation email after checking these URL settings, then open the newest link once.
 
+## Account deletion
+
+The app's **Delete account** action requires the account password again and the exact confirmation text `DELETE`. It calls the `delete-account` Edge Function, which validates the caller's bearer token and deletes only that authenticated user's Supabase Auth account. The database schema cascades that deletion to the user's books and their documents, entities, and Memory Review suggestions. The browser clears that account's local library on the current device only after Supabase confirms deletion; local copies on other devices cannot be remotely erased.
+
+Deploy [`supabase/functions/delete-account/index.ts`](./supabase/functions/delete-account/index.ts) to the same Supabase project before publishing the updated frontend. The hosted Edge Function must have its standard `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY` environment variables available. The service-role key must remain server-side and must never be added to frontend code or repository configuration.
+
+Test with a disposable account that contains only disposable data. Confirm the UI reports success and that the account can no longer log in. Do not test deletion against an account containing writing you need to keep.
+
 ## Local tests
 
 Run from the project folder:
@@ -68,6 +76,6 @@ These are focused local tests with mocked HTTP responses. They do not verify the
 
 - **Frontend:** push the intended `index.html` and adapter changes to the repository; GitHub Pages publishes the site.
 - **Database:** run a required SQL migration once in the Supabase SQL Editor.
-- **Edge Function:** deploy its entry point and imported helper separately in Supabase when changed.
+- **Edge Functions:** deploy `analyze-scene` and `delete-account` separately in Supabase when their sources change.
 
 Never place service-role keys, database passwords, or user access tokens in the repository.
