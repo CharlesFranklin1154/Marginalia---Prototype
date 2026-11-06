@@ -12,7 +12,7 @@ const cardContextFields = {
   lore: [...fieldsByKind.lore, 'loreType'],
 };
 
-export const GEMINI_MODEL = 'gemini-3.8-flash';
+export const GEMINI_MODEL = 'gemini-3.1-flash-lite';
 
 export function buildGeminiRequest(text, entities) {
   const cards = [];

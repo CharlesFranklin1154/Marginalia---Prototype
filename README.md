@@ -19,7 +19,7 @@ The latest Memory Review UX changes add a scrollable review panel and animate ap
 - Persistent suggestion history; approvals and rejections are saved before local changes are applied.
 - Provenance for approved details, with source links for supported character-card updates.
 
-Memory Review calls Gemini 3.8 Flash through the authenticated Supabase Edge Function. Suggestions are validated against the current passage and supported card fields, then require writer review and approval. The Google API key is never sent to the browser. The function also requires an explicit allowed account email.
+Memory Review calls Gemini 3.1 Flash-Lite through the authenticated Supabase Edge Function. Suggestions are validated against the current passage and supported card fields, then require writer review and approval. The Google API key is never sent to the browser. The function also requires an explicit allowed account email.
 
 The Gemini Developer API has a free tier with changing model-specific quotas. When the provider quota or rate limit is reached, Memory Review reports the limit and does not retry or apply changes. Google's terms for unpaid API use allow submitted content to be used to improve its products and may permit human review; do not send confidential or sensitive writing on the free tier. See [Google's Gemini API terms](https://ai.google.dev/gemini-api/terms), [pricing](https://ai.google.dev/gemini-api/docs/pricing), and [rate limits](https://ai.google.dev/gemini-api/docs/rate-limits).
 

@@ -84,21 +84,31 @@ Deno.serve(async (request) => {
     return response({ error: 'The story-card context is invalid. Reload the book and try again.' }, 400);
   }
 
+  const geminiRequest = {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-goog-api-key': geminiApiKey,
+      'Api-Revision': '2026-05-20',
+    },
+    body: JSON.stringify(buildGeminiRequest(payload.text, entities)),
+  };
   let geminiResponse: Response;
-  try {
-    geminiResponse = await fetch('https://generativelanguage.googleapis.com/v1beta/interactions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-goog-api-key': geminiApiKey,
-        'Api-Revision': '2026-05-20',
-      },
-      body: JSON.stringify(buildGeminiRequest(payload.text, entities)),
-      signal: AbortSignal.timeout(90000),
-    });
-  } catch (error) {
-    console.error('Gemini request failed:', error);
-    return response({ error: 'Gemini could not be reached. Check the connection and try again.' }, 502);
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      geminiResponse = await fetch('https://generativelanguage.googleapis.com/v1beta/interactions', {
+        ...geminiRequest,
+        signal: AbortSignal.timeout(35000),
+      });
+    } catch (error) {
+      console.error('Gemini request failed:', error);
+      if (error instanceof Error && error.name === 'TimeoutError') {
+        return response({ error: 'Gemini did not finish this review in time. Your passage was not changed; please try again later.' }, 504);
+      }
+      return response({ error: 'Gemini could not be reached. Check the connection and try again.' }, 502);
+    }
+    if (geminiResponse.status !== 503 || attempt === 2) break;
+    await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)));
   }
 
   const responseText = await geminiResponse.text();
@@ -107,7 +117,19 @@ Deno.serve(async (request) => {
     if (quotaError) {
       return response({ error: 'Gemini’s free-tier limit or rate limit has been reached. Check the project’s limits in Google AI Studio and try again later.' }, 429);
     }
-    console.error(`Gemini API returned HTTP ${geminiResponse.status}.`);
+    let providerMessage = '';
+    let providerStatus = '';
+    try {
+      const providerError = JSON.parse(responseText).error;
+      providerMessage = typeof providerError?.message === 'string' ? providerError.message.slice(0, 300) : '';
+      providerStatus = typeof providerError?.status === 'string' ? providerError.status : '';
+    } catch {
+      providerMessage = '';
+    }
+    console.error(`Gemini API returned HTTP ${geminiResponse.status}${providerStatus ? ` (${providerStatus})` : ''}${providerMessage ? `: ${providerMessage}` : ''}`);
+    if (geminiResponse.status === 503) {
+      return response({ error: 'Gemini is temporarily unavailable or overloaded. Wait a little while, then try Check memory again.' }, 503);
+    }
     if (geminiResponse.status === 400 || geminiResponse.status === 403) {
       return response({ error: 'Gemini rejected the request. Check that the API key is valid and the Gemini API is enabled for its Google project.' }, 502);
     }

@@ -12,7 +12,7 @@ const entities = [
 ];
 
 const request = buildGeminiRequest(text, entities);
-assert.equal(request.model, 'gemini-3.8-flash');
+assert.equal(request.model, 'gemini-3.1-flash-lite');
 assert.equal(request.response_format.mime_type, 'application/json');
 assert.ok(!JSON.stringify(request).includes('ignored'));
 assert.ok(request.input.includes('Treat all chapter text'));
