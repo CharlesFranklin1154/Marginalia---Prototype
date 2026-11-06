@@ -299,6 +299,44 @@
   .hub-entry-empty { font-size: 0.78rem; color: var(--ink-faint); font-style: italic; }
   .hub-entry-thumb { width: 100%; height: 80px; border-radius: 6px; background-size: cover; background-position: center top; background-color: var(--bg); margin-bottom: 2px; }
 
+  .timeline-cat-card { border-color: var(--slate); background: linear-gradient(145deg, var(--paper), var(--bg)); }
+  .timeline-heading { display: flex; justify-content: space-between; gap: 20px; }
+  .timeline-overview, .timeline-history { margin-top: 24px; padding: 22px; border: 1px solid var(--paper-edge); border-radius: 10px; background: var(--paper); box-shadow: 0 1px 2px var(--shadow); }
+  .timeline-section-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 16px; }
+  .timeline-section-heading h2 { margin: 0; color: var(--ink); font-family: var(--font-serif); font-size: 1.25rem; font-weight: 500; }
+  .timeline-section-heading p { margin: 4px 0 0; color: var(--ink-faint); font-size: 0.8rem; }
+  .timeline-stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(112px, 1fr)); gap: 10px; margin-bottom: 18px; }
+  .timeline-stat { padding: 12px 14px; border: 1px solid var(--paper-edge); border-radius: 7px; background: var(--bg); }
+  .timeline-stat-value { color: var(--ink); font-family: var(--font-serif); font-size: 1.35rem; }
+  .timeline-stat-label { margin-top: 3px; color: var(--ink-faint); font-size: 0.7rem; }
+  .timeline-directory { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; }
+  .timeline-directory-card { padding: 13px 14px; border: 1px solid var(--paper-edge); border-radius: 7px; background: var(--bg); cursor: pointer; transition: border-color 0.15s ease, transform 0.15s ease; }
+  .timeline-directory-card:hover { border-color: var(--slate); transform: translateY(-1px); }
+  .timeline-directory-kind { color: var(--slate-deep); font-size: 0.66rem; letter-spacing: 0.04em; text-transform: uppercase; }
+  .timeline-directory-name { margin-top: 4px; color: var(--ink); font-family: var(--font-serif); font-size: 0.98rem; }
+  .timeline-directory-summary { margin-top: 5px; color: var(--ink-soft); font-size: 0.76rem; line-height: 1.45; }
+  .timeline-empty { padding: 20px; color: var(--ink-faint); font-size: 0.84rem; text-align: center; }
+  .timeline-filters { display: grid; grid-template-columns: minmax(140px, 0.7fr) minmax(180px, 1fr) minmax(180px, 1.2fr); gap: 12px; margin-bottom: 20px; }
+  .timeline-filters label { display: flex; flex-direction: column; gap: 5px; color: var(--ink-faint); font-size: 0.72rem; }
+  .timeline-filters select, .timeline-filters input { width: 100%; min-width: 0; padding: 9px 10px; border: 1px solid var(--paper-edge); border-radius: 6px; background: var(--bg); color: var(--ink); font: inherit; font-size: 0.83rem; }
+  .timeline-event-list { display: flex; flex-direction: column; gap: 10px; }
+  .timeline-event { position: relative; display: grid; grid-template-columns: minmax(130px, 0.35fr) minmax(0, 1fr); gap: 16px; padding: 14px 16px; border: 1px solid var(--paper-edge); border-radius: 8px; background: var(--bg); }
+  .timeline-event-source { display: flex; flex-direction: column; gap: 5px; align-items: flex-start; }
+  .timeline-event-source button, .entity-source-link { border: 0; padding: 0; background: none; color: var(--slate-deep); font: inherit; font-size: 0.76rem; text-align: left; text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+  .timeline-event-source button:hover, .entity-source-link:hover { color: var(--ink); }
+  .timeline-event-source span { color: var(--ink-faint); font-size: 0.7rem; }
+  .timeline-event-title { color: var(--ink); font-size: 0.78rem; font-weight: 600; }
+  .timeline-event-fact { margin-top: 5px; color: var(--ink-soft); font-size: 0.85rem; line-height: 1.55; white-space: pre-wrap; }
+  .timeline-event-evidence { margin-top: 8px; padding-left: 10px; border-left: 2px solid var(--moss); color: var(--ink-faint); font-size: 0.75rem; font-style: italic; line-height: 1.5; }
+  .entity-sources { margin: 16px 0; padding: 12px 14px; border: 1px solid var(--paper-edge); border-radius: 7px; background: var(--bg); }
+  .entity-sources summary { color: var(--slate-deep); cursor: pointer; font-size: 0.8rem; font-weight: 600; }
+  .entity-source-list { display: flex; flex-direction: column; gap: 9px; margin-top: 12px; }
+  .entity-source-item { padding-top: 9px; border-top: 1px solid var(--paper-edge); }
+  .entity-source-meta { display: flex; flex-wrap: wrap; align-items: baseline; gap: 7px; color: var(--ink-soft); font-size: 0.76rem; }
+  .entity-source-field { color: var(--ink); font-weight: 600; }
+  .entity-source-evidence { margin-top: 5px; color: var(--ink-faint); font-size: 0.76rem; font-style: italic; line-height: 1.5; }
+  .entity-source-fact { margin-top: 5px; color: var(--ink-soft); font-size: 0.8rem; line-height: 1.5; white-space: pre-wrap; }
+
   .hub-add-card {
     border: 1.5px dashed var(--line); border-radius: 8px; min-height: 108px; display: flex; align-items: center;
     justify-content: center; color: var(--ink-faint); cursor: pointer; transition: border-color 0.15s ease, color 0.15s ease, transform 0.18s ease;
@@ -641,6 +679,10 @@
     .resume-banner { align-items: flex-start; gap: 10px; padding: 12px; }
     .resume-name { font-size: 0.9rem; }
     .resume-time { font-size: 0.66rem; text-align: right; }
+    .timeline-overview, .timeline-history { padding: 15px; }
+    .timeline-filters { grid-template-columns: minmax(0, 1fr); gap: 9px; }
+    .timeline-event { grid-template-columns: minmax(0, 1fr); gap: 9px; padding: 12px; }
+    .timeline-event-source { flex-direction: row; flex-wrap: wrap; align-items: baseline; gap: 8px; }
     .modal.writer.editor-page-content { padding: 12px 14px 0; }
     .modal.writer.editor-page-content .writer-body { min-width: 0; }
     .modal.writer.editor-page-content .entry-editor-wrap { min-width: 0; }
@@ -789,6 +831,7 @@
         <div class="nav-subitem" data-cat="locations"><span class="sicon">&#8982;</span><span class="nav-text">Locations</span></div>
         <div class="nav-subitem" data-cat="items"><span class="sicon">&#9670;</span><span class="nav-text">Items</span></div>
         <div class="nav-subitem" data-cat="lore"><span class="sicon">&#10022;</span><span class="nav-text">Lore</span></div>
+        <div class="nav-subitem" data-timeline="1"><span class="sicon">&#128214;</span><span class="nav-text">Timeline</span></div>
         <div class="nav-subitem" data-brain="1"><span class="sicon">&#9729;</span><span class="nav-text">Brain Dump</span></div>
       </div>
     </div>
@@ -895,6 +938,10 @@
           <div class="cat-icon">&#10022;</div>
           <div><div class="cat-name">Add a Lore Card</div><div class="cat-count" data-count="lore">0 lore cards</div></div>
         </div>
+        <div class="cat-card timeline-cat-card" data-timeline="1">
+          <div class="cat-icon">&#128214;</div>
+          <div><div class="cat-name">Story Timeline</div><div class="cat-count">A source-backed lore book</div></div>
+        </div>
         <div class="cat-card" data-cat="brainDumps">
           <div class="cat-icon">&#9729;</div>
           <div><div class="cat-name">Add a Brain Dump</div><div class="cat-count" data-count="brainDumps">0 brain dumps</div></div>
@@ -911,6 +958,47 @@
       </div>
       <p class="hub-desc" id="hubDesc"></p>
       <div class="hub-grid" id="hubGrid"></div>
+    </div>
+
+    <!-- TIMELINE / STORY INDEX VIEW -->
+    <div class="view" id="timelineView">
+      <div class="hub-crumb" id="timelineCrumb">&larr; <span id="timelineCrumbTitle">Back to book</span></div>
+      <div class="timeline-heading">
+        <div>
+          <div class="hub-header"><div class="hub-icon">&#128214;</div><h1 id="timelineBookTitle">Story Timeline</h1></div>
+          <p class="hub-desc">A living lore book built from your saved cards and approved, source-linked story details. Events follow the chapter list, then the scene list.</p>
+        </div>
+      </div>
+      <section class="timeline-overview" aria-labelledby="timelineOverviewTitle">
+        <div class="timeline-section-heading">
+          <div><h2 id="timelineOverviewTitle">Book at a glance</h2><p>Current story reference, gathered in one place.</p></div>
+        </div>
+        <div class="timeline-stat-grid" id="timelineStats"></div>
+        <div class="timeline-directory" id="timelineDirectory"></div>
+      </section>
+      <section class="timeline-history" aria-labelledby="timelineHistoryTitle">
+        <div class="timeline-section-heading">
+          <div><h2 id="timelineHistoryTitle">Story developments</h2><p>Approved details in manuscript order, with their evidence.</p></div>
+        </div>
+        <div class="timeline-filters">
+          <label>Type
+            <select id="timelineKindFilter">
+              <option value="all">All elements</option>
+              <option value="character">Characters</option>
+              <option value="location">Locations</option>
+              <option value="item">Items</option>
+              <option value="lore">Lore</option>
+            </select>
+          </label>
+          <label>Element
+            <select id="timelineEntityFilter"><option value="all">All elements</option></select>
+          </label>
+          <label class="timeline-search-label">Search
+            <input id="timelineSearch" type="search" placeholder="Find a name, detail, or source">
+          </label>
+        </div>
+        <div class="timeline-event-list" id="timelineEvents"></div>
+      </section>
     </div>
 
     <!-- BRAIN DUMP VIEW -->
@@ -1170,6 +1258,11 @@
         <textarea id="charNotes" rows="3" placeholder="Anything else worth remembering that doesn't fit above."></textarea>
       </div>
 
+      <details class="entity-sources" id="charSources">
+        <summary>Sources</summary>
+        <div class="entity-source-list"></div>
+      </details>
+
       <div class="modal-actions">
         <button class="btn ghost" id="charDeleteBtn" type="button" style="color:var(--rust-deep);">Delete</button>
         <div class="modal-actions-right">
@@ -1248,6 +1341,11 @@
         <textarea id="locNotes" rows="3" placeholder="Anything else worth remembering that doesn't fit above."></textarea>
       </div>
 
+      <details class="entity-sources" id="locSources">
+        <summary>Sources</summary>
+        <div class="entity-source-list"></div>
+      </details>
+
       <div class="modal-actions">
         <button class="btn ghost" id="locDeleteBtn" type="button" style="color:var(--rust-deep);">Delete</button>
         <div class="modal-actions-right">
@@ -1319,6 +1417,11 @@
         <label for="itemNotes">Additional Notes</label>
         <textarea id="itemNotes" rows="3" placeholder="Anything else worth remembering that doesn't fit above."></textarea>
       </div>
+
+      <details class="entity-sources" id="itemSources">
+        <summary>Sources</summary>
+        <div class="entity-source-list"></div>
+      </details>
 
       <div class="modal-actions">
         <button class="btn ghost" id="itemDeleteBtn" type="button" style="color:var(--rust-deep);">Delete</button>
@@ -1404,6 +1507,11 @@
         <label for="loreNotes">Additional notes</label>
         <textarea id="loreNotes" rows="3" placeholder="Anything else worth remembering. Add details gradually as the story reveals them."></textarea>
       </div>
+
+      <details class="entity-sources" id="loreSources">
+        <summary>Sources</summary>
+        <div class="entity-source-list"></div>
+      </details>
 
       <div class="modal-actions">
         <button class="btn ghost" id="loreDeleteBtn" type="button" style="color:var(--rust-deep);">Delete</button>
@@ -2325,8 +2433,9 @@
   const libraryView = document.getElementById('libraryView');
   const projectView = document.getElementById('projectView');
   const hubView = document.getElementById('hubView');
+  const timelineView = document.getElementById('timelineView');
   const brainView = document.getElementById('brainView');
-  const allViews = [libraryView, projectView, hubView, brainView];
+  const allViews = [libraryView, projectView, hubView, timelineView, brainView];
   const navProjectBlock = document.getElementById('navProjectBlock');
   const navAllProjects = document.getElementById('navAllProjects');
   const navCurrentRow = document.getElementById('navCurrentRow');
@@ -2585,13 +2694,17 @@
     document.querySelectorAll('.nav-subitem').forEach(el => {
       const cat = el.getAttribute('data-cat');
       const isBrain = el.hasAttribute('data-brain');
-      el.classList.toggle('active', (cat && cat === activeCat) || (isBrain && activeCat === 'brainDumps'));
+      const isTimeline = el.hasAttribute('data-timeline');
+      el.classList.toggle('active', (cat && cat === activeCat) || (isBrain && activeCat === 'brainDumps') || (isTimeline && activeCat === 'timeline'));
     });
   }
   document.querySelectorAll('.nav-subitem[data-cat]').forEach(el => {
     el.addEventListener('click', () => { if (activeProjectId) openHub(el.getAttribute('data-cat')); });
   });
   document.querySelector('.nav-subitem[data-brain]').addEventListener('click', () => { if (activeProjectId) openHub('brainDumps'); });
+  document.querySelectorAll('[data-timeline]').forEach(el => {
+    el.addEventListener('click', () => { if (activeProjectId) openTimeline(); });
+  });
 
   document.querySelectorAll('.cat-card[data-cat]').forEach(card => {
     card.addEventListener('click', () => openHub(card.getAttribute('data-cat')));
@@ -2671,6 +2784,245 @@
     hubGrid.appendChild(addTile);
   }
   document.getElementById('hubCrumb').addEventListener('click', () => { activeCat = null; switchTo(projectView); highlightNavSubitems(); });
+
+  const timelineStats = document.getElementById('timelineStats');
+  const timelineDirectory = document.getElementById('timelineDirectory');
+  const timelineEvents = document.getElementById('timelineEvents');
+  const timelineKindFilter = document.getElementById('timelineKindFilter');
+  const timelineEntityFilter = document.getElementById('timelineEntityFilter');
+  const timelineSearch = document.getElementById('timelineSearch');
+  const timelineCategories = [
+    { category: 'characters', kind: 'character', label: 'Character' },
+    { category: 'locations', kind: 'location', label: 'Location' },
+    { category: 'items', kind: 'item', label: 'Item' },
+    { category: 'lore', kind: 'lore', label: 'Lore' },
+  ];
+
+  function timelineSources(project) {
+    const sourceDocuments = new Map();
+    ['chapters', 'scenes'].forEach(category => {
+      (project[category] || []).forEach((entry, index) => {
+        sourceDocuments.set(`${project.id}:${category}:${entry._id}`, { category, index, entry });
+      });
+    });
+    const events = [];
+    timelineCategories.forEach(({ category, kind, label }, kindOrder) => {
+      (project[category] || []).forEach((entity, entityIndex) => {
+        (Array.isArray(entity.provenance) ? entity.provenance : []).forEach((source, sourceIndex) => {
+          if (!source || !source.sourceDocumentKey) return;
+          const sourceDocument = sourceDocuments.get(source.sourceDocumentKey);
+          if (!sourceDocument) return;
+          events.push({
+            category,
+            kind,
+            label,
+            kindOrder,
+            entity,
+            entityIndex,
+            source,
+            sourceIndex,
+            sourceDocument,
+            line: Number(source.sourceLine) || 1,
+          });
+        });
+      });
+    });
+    return events.sort((left, right) =>
+      (left.sourceDocument.category === right.sourceDocument.category
+        ? left.sourceDocument.index - right.sourceDocument.index
+        : left.sourceDocument.category === 'chapters' ? -1 : 1)
+      || left.line - right.line
+      || left.kindOrder - right.kindOrder
+      || left.entityIndex - right.entityIndex
+      || left.sourceIndex - right.sourceIndex
+    );
+  }
+
+  function timelineEntityDescription(entry, kind) {
+    const fields = {
+      character: ['role', 'goal', 'personality', 'background', 'notes'],
+      location: ['role', 'description', 'location', 'features', 'notes'],
+      item: ['point', 'looks', 'effects', 'notes'],
+      lore: ['overview', 'role', 'origin', 'rules', 'notes'],
+    }[kind];
+    return fields.map(field => String(entry[field] || '').trim()).find(Boolean) || 'No details saved yet.';
+  }
+
+  function openTimelineEntity(category, index) {
+    if (category === 'characters') openCharacterModal(index);
+    else if (category === 'locations') openLocationModal(index);
+    else if (category === 'items') openItemModal(index);
+    else if (category === 'lore') openLoreModal(index);
+  }
+
+  function renderTimeline(project) {
+    const entityFilter = timelineEntityFilter.value;
+    const kindFilter = timelineKindFilter.value;
+    const search = timelineSearch.value.trim().toLowerCase();
+    const allEntities = timelineCategories.flatMap(({ category, kind, label }) =>
+      (project[category] || []).map((entry, index) => ({ category, kind, label, entry, index }))
+    );
+    const events = timelineSources(project);
+    const totalSources = allEntities.reduce((count, item) => count + (Array.isArray(item.entry.provenance) ? item.entry.provenance.length : 0), 0);
+    const stats = [
+      { label: 'Chapters', value: (project.chapters || []).length },
+      { label: 'Scenes', value: (project.scenes || []).length },
+      { label: 'Characters', value: (project.characters || []).length },
+      { label: 'Locations', value: (project.locations || []).length },
+      { label: 'Items', value: (project.items || []).length },
+      { label: 'Lore cards', value: (project.lore || []).length },
+      { label: 'Linked sources', value: totalSources },
+    ];
+    timelineStats.replaceChildren();
+    stats.forEach(stat => {
+      const card = document.createElement('div');
+      card.className = 'timeline-stat';
+      const value = document.createElement('div');
+      value.className = 'timeline-stat-value';
+      value.textContent = String(stat.value);
+      const label = document.createElement('div');
+      label.className = 'timeline-stat-label';
+      label.textContent = stat.label;
+      card.append(value, label);
+      timelineStats.appendChild(card);
+    });
+
+    timelineDirectory.replaceChildren();
+    const visibleEntities = allEntities.filter(item =>
+      (kindFilter === 'all' || item.kind === kindFilter)
+      && (entityFilter === 'all' || `${item.category}:${item.entry._id}` === entityFilter)
+      && (!search || `${item.entry.name} ${timelineEntityDescription(item.entry, item.kind)}`.toLowerCase().includes(search))
+    );
+    if (!visibleEntities.length) {
+      const empty = document.createElement('div');
+      empty.className = 'timeline-empty';
+      empty.textContent = 'No saved story cards match these filters yet.';
+      timelineDirectory.appendChild(empty);
+    } else {
+      visibleEntities.forEach(item => {
+        const card = document.createElement('button');
+        card.className = 'timeline-directory-card';
+        card.type = 'button';
+        const kind = document.createElement('div');
+        kind.className = 'timeline-directory-kind';
+        kind.textContent = item.label;
+        const name = document.createElement('div');
+        name.className = 'timeline-directory-name';
+        name.textContent = item.entry.name || 'Untitled';
+        const summary = document.createElement('div');
+        summary.className = 'timeline-directory-summary';
+        summary.textContent = timelineEntityDescription(item.entry, item.kind);
+        card.append(kind, name, summary);
+        card.addEventListener('click', () => openTimelineEntity(item.category, item.index));
+        timelineDirectory.appendChild(card);
+      });
+    }
+
+    timelineEvents.replaceChildren();
+    const visibleEvents = events.filter(event =>
+      (kindFilter === 'all' || event.kind === kindFilter)
+      && (entityFilter === 'all' || `${event.category}:${event.entity._id}` === entityFilter)
+      && (!search || `${event.entity.name} ${event.source.field || ''} ${event.source.value || ''} ${event.source.sourceText || ''} ${event.source.sourceLabel || ''}`.toLowerCase().includes(search))
+    );
+    if (!visibleEvents.length) {
+      const empty = document.createElement('div');
+      empty.className = 'timeline-empty';
+      empty.textContent = events.length
+        ? 'No approved, source-linked developments match these filters.'
+        : 'Approved source-linked details will appear here as you review and save Memory Review suggestions.';
+      timelineEvents.appendChild(empty);
+    } else {
+      visibleEvents.forEach(event => {
+        const card = document.createElement('article');
+        card.className = 'timeline-event';
+        const source = document.createElement('div');
+        source.className = 'timeline-event-source';
+        const sourceLabel = event.source.sourceLabel || event.sourceDocument.entry.name || 'Untitled entry';
+        const sourceButton = document.createElement('button');
+        sourceButton.type = 'button';
+        sourceButton.textContent = `${sourceLabel} · Line ${event.line}`;
+        sourceButton.addEventListener('click', () => openSourceDocument(event.source));
+        const sourceKind = document.createElement('span');
+        sourceKind.textContent = event.sourceDocument.category === 'chapters' ? 'Chapter' : 'Scene';
+        source.append(sourceButton, sourceKind);
+        const detail = document.createElement('div');
+        const title = document.createElement('div');
+        title.className = 'timeline-event-title';
+        title.textContent = `${event.entity.name || 'Untitled'} · ${event.source.field || 'Story detail'}`;
+        detail.appendChild(title);
+        const factText = String(event.source.value || '').trim() || String(event.source.sourceText || '').trim();
+        if (factText) {
+          const fact = document.createElement('div');
+          fact.className = 'timeline-event-fact';
+          fact.textContent = factText;
+          detail.appendChild(fact);
+        }
+        if (event.source.value && event.source.sourceText) {
+          const evidence = document.createElement('div');
+          evidence.className = 'timeline-event-evidence';
+          evidence.textContent = `Evidence: “${event.source.sourceText}”`;
+          detail.appendChild(evidence);
+        }
+        card.append(source, detail);
+        timelineEvents.appendChild(card);
+      });
+    }
+  }
+
+  function refreshTimelineEntityFilter() {
+    const currentValue = timelineEntityFilter.value;
+    const kind = timelineKindFilter.value;
+    timelineEntityFilter.replaceChildren();
+    const allOption = document.createElement('option');
+    allOption.value = 'all';
+    allOption.textContent = 'All elements';
+    timelineEntityFilter.appendChild(allOption);
+    const project = projects.find(item => item.id === activeProjectId);
+    if (!project) return;
+    timelineCategories.forEach(({ category, kind: entityKind, label }) => {
+      if (kind !== 'all' && kind !== entityKind) return;
+      (project[category] || []).forEach(entry => {
+        const option = document.createElement('option');
+        option.value = `${category}:${entry._id}`;
+        option.textContent = `${label}: ${entry.name || 'Untitled'}`;
+        timelineEntityFilter.appendChild(option);
+      });
+    });
+    timelineEntityFilter.value = Array.from(timelineEntityFilter.options).some(option => option.value === currentValue)
+      ? currentValue
+      : 'all';
+  }
+
+  function openTimeline() {
+    const project = projects.find(item => item.id === activeProjectId);
+    if (!project) return;
+    activeCat = 'timeline';
+    document.getElementById('timelineCrumbTitle').textContent = `Back to ${project.title || 'book'}`;
+    document.getElementById('timelineBookTitle').textContent = `${project.title || 'Untitled book'} · Story Timeline`;
+    refreshTimelineEntityFilter();
+    renderTimeline(project);
+    switchTo(timelineView);
+    highlightNavSubitems();
+  }
+
+  timelineKindFilter.addEventListener('change', () => {
+    refreshTimelineEntityFilter();
+    const project = projects.find(item => item.id === activeProjectId);
+    if (project) renderTimeline(project);
+  });
+  timelineEntityFilter.addEventListener('change', () => {
+    const project = projects.find(item => item.id === activeProjectId);
+    if (project) renderTimeline(project);
+  });
+  timelineSearch.addEventListener('input', () => {
+    const project = projects.find(item => item.id === activeProjectId);
+    if (project) renderTimeline(project);
+  });
+  document.getElementById('timelineCrumb').addEventListener('click', () => {
+    activeCat = null;
+    switchTo(projectView);
+    highlightNavSubitems();
+  });
 
   // ================= Brain dump view =================
   const brainCrumbTitle = document.getElementById('brainCrumbTitle');
@@ -3117,6 +3469,7 @@
       entity.provenance = Array.isArray(entity.provenance) ? entity.provenance : [];
       entity.provenance.push({
         field: 'name',
+        value: suggestion.value || name,
         sourceDocumentKey: suggestion.sourceDocumentKey,
         sourceLabel: suggestion.sourceLabel,
         sourceLine: suggestion.sourceLine,
@@ -3154,6 +3507,7 @@
     entity.provenance = Array.isArray(entity.provenance) ? entity.provenance : [];
     entity.provenance.push({
       field: suggestion.field,
+      value: suggestion.value,
       sourceDocumentKey: suggestion.sourceDocumentKey,
       sourceLabel: suggestion.sourceLabel,
       sourceLine: suggestion.sourceLine,
@@ -3519,31 +3873,67 @@
       const label = document.querySelector(`label[for="char${key.charAt(0).toUpperCase() + key.slice(1)}"]`);
       if (label) label.querySelectorAll('.source-provenance').forEach(el => el.remove());
     });
-    if (!entry || !Array.isArray(entry.provenance)) return;
-    entry.provenance.forEach(source => {
-      const key = source.field;
-      const label = document.querySelector(`label[for="char${key.charAt(0).toUpperCase() + key.slice(1)}"]`);
-      if (!label || !source.sourceDocumentKey) return;
-      const parts = source.sourceDocumentKey.split(':');
-      const cat = parts[1];
-      const entryId = parts.slice(2).join(':');
-      const p = projects.find(x => x.id === activeProjectId);
-      const sourceIndex = p && p[cat] ? p[cat].findIndex(item => item._id === entryId) : -1;
-      if (sourceIndex < 0) return;
-      const wrap = document.createElement('span');
-      wrap.className = 'source-provenance';
-      const link = document.createElement('a');
-      link.href = '#';
-      link.textContent = `(${source.sourceLabel || 'Source'} - Line ${source.sourceLine || 1})`;
-      link.addEventListener('click', (event) => {
-        event.preventDefault();
-        characterOverlay.classList.remove('show');
-        pendingSourceHighlight = { sourceText: source.sourceText };
-        openEntryModal(cat, sourceIndex);
-      });
-      wrap.appendChild(link);
-      label.appendChild(wrap);
+    renderEntitySources(entry, document.getElementById('charSources'));
+  }
+
+  function renderEntitySources(entry, panel) {
+    if (!panel) return;
+    const list = panel.querySelector('.entity-source-list');
+    const sources = entry && Array.isArray(entry.provenance) ? entry.provenance : [];
+    panel.querySelector('summary').textContent = `Sources (${sources.length})`;
+    list.replaceChildren();
+    panel.open = false;
+    if (!sources.length) {
+      const empty = document.createElement('div');
+      empty.className = 'writer-entity-empty';
+      empty.textContent = 'No linked sources yet. Approved Memory Review details will appear here.';
+      list.appendChild(empty);
+      return;
+    }
+    sources.forEach(source => {
+      const item = document.createElement('div');
+      item.className = 'entity-source-item';
+      const meta = document.createElement('div');
+      meta.className = 'entity-source-meta';
+      const field = document.createElement('span');
+      field.className = 'entity-source-field';
+      field.textContent = String(source.field || 'Story detail').replace(/([A-Z])/g, ' $1');
+      const sourceLabel = source.sourceLabel || 'Source';
+      const sourceButton = document.createElement('button');
+      sourceButton.className = 'entity-source-link';
+      sourceButton.type = 'button';
+      sourceButton.textContent = `${sourceLabel} · Line ${Number(source.sourceLine) || 1}`;
+      sourceButton.addEventListener('click', () => openSourceDocument(source, panel.closest('.overlay')));
+      meta.append(field, sourceButton);
+      item.appendChild(meta);
+      if (source.value) {
+        const fact = document.createElement('div');
+        fact.className = 'entity-source-fact';
+        fact.textContent = source.value;
+        item.appendChild(fact);
+      }
+      if (source.sourceText) {
+        const evidence = document.createElement('div');
+        evidence.className = 'entity-source-evidence';
+        evidence.textContent = `Evidence: “${source.sourceText}”`;
+        item.appendChild(evidence);
+      }
+      list.appendChild(item);
     });
+  }
+
+  function openSourceDocument(source, overlay) {
+    const sourceKey = String(source && source.sourceDocumentKey || '');
+    const parts = sourceKey.split(':');
+    const category = parts[1];
+    const entryId = parts.slice(2).join(':');
+    const project = projects.find(item => item.id === activeProjectId);
+    if (!project || !['chapters', 'scenes'].includes(category)) return;
+    const index = (project[category] || []).findIndex(entry => entry._id === entryId);
+    if (index < 0) return;
+    if (overlay) overlay.classList.remove('show');
+    pendingSourceHighlight = { sourceText: source.sourceText || '' };
+    openEntryModal(category, index);
   }
 
   const imgLightbox = document.getElementById('imgLightbox');
@@ -3747,6 +4137,7 @@
       document.getElementById('locDeleteBtn').style.visibility = 'visible';
     }
     locationModalSnapshot = captureOverlaySnapshot(locFields, locImages);
+    renderEntitySources(idx === null ? null : projects.find(x => x.id === activeProjectId).locations[idx], document.getElementById('locSources'));
     renderLocImageGrid();
     locationOverlay.classList.add('show');
     startAutosaveTimer();
@@ -3864,6 +4255,7 @@
       document.getElementById('itemDeleteBtn').style.visibility = 'visible';
     }
     itemModalSnapshot = captureOverlaySnapshot(itemFields, itemImages);
+    renderEntitySources(idx === null ? null : projects.find(x => x.id === activeProjectId).items[idx], document.getElementById('itemSources'));
     renderItemImageGrid();
     itemOverlay.classList.add('show');
     startAutosaveTimer();
@@ -3987,6 +4379,7 @@
       document.getElementById('loreDeleteBtn').style.visibility = 'visible';
     }
     loreModalSnapshot = captureOverlaySnapshot(loreFields, loreImages);
+    renderEntitySources(idx === null ? null : projects.find(x => x.id === activeProjectId).lore[idx], document.getElementById('loreSources'));
     renderLoreImageGrid();
     loreOverlay.classList.add('show');
     startAutosaveTimer();
