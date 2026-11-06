@@ -138,10 +138,16 @@ Deno.serve(async (request) => {
 
   let result: { suggestions?: unknown };
   try {
-    result = JSON.parse(extractGeminiText(JSON.parse(responseText)));
+    const interaction = JSON.parse(responseText);
+    if (interaction.status && interaction.status !== 'completed') {
+      console.error(`Gemini interaction ended with status: ${interaction.status}`);
+      return response({ error: 'Gemini did not complete the review. Nothing was saved; try again later.' }, 502);
+    }
+    result = JSON.parse(extractGeminiText(interaction));
   } catch (error) {
-    console.error('Gemini returned an invalid structured response:', error);
-    return response({ error: 'Gemini returned an unreadable review. Nothing was saved; try again.' }, 502);
+    const detail = error instanceof Error ? error.message : 'Unknown parsing error';
+    console.error(`Gemini response parsing failed: ${detail}`);
+    return response({ error: 'Gemini returned a response Marginalia could not read. Nothing was saved; try again.' }, 502);
   }
 
   let suggestions;

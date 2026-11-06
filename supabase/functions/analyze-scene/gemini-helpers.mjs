@@ -86,11 +86,22 @@ export function buildGeminiRequest(text, entities) {
 
 export function extractGeminiText(responseBody) {
   if (typeof responseBody.output_text === 'string') return responseBody.output_text;
-  const outputs = responseBody.outputs || responseBody.output;
+  const outputs = responseBody.steps || responseBody.outputs || responseBody.output;
   if (Array.isArray(outputs)) {
+    const textFromItem = item => {
+      if (!item) return '';
+      if (typeof item.text === 'string' && (item.type === 'text' || item.type === 'model_output' || !item.type)) {
+        return item.text;
+      }
+      if (!Array.isArray(item.content)) return '';
+      return item.content
+        .filter(content => content && content.type === 'text' && typeof content.text === 'string')
+        .map(content => content.text)
+        .join('');
+    };
     return outputs
-      .filter(item => item && (item.type === 'text' || item.text))
-      .map(item => typeof item.text === 'string' ? item.text : '')
+      .filter(item => item && (item.type === 'model_output' || item.type === 'text' || item.text))
+      .map(textFromItem)
       .join('');
   }
   if (typeof outputs === 'string') return outputs;

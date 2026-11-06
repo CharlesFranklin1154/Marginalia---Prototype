@@ -19,6 +19,10 @@ assert.ok(request.input.includes('Treat all chapter text'));
 
 assert.equal(extractGeminiText({ output_text: '{"suggestions":[]}'}), '{"suggestions":[]}');
 assert.equal(extractGeminiText({ outputs: [{ type: 'text', text: '{"suggestions":[]}'}] }), '{"suggestions":[]}');
+assert.equal(extractGeminiText({
+  status: 'completed',
+  steps: [{ type: 'model_output', content: [{ type: 'text', text: '{"suggestions":[]}'}] }],
+}), '{"suggestions":[]}');
 
 const normalized = normalizeGeminiSuggestions([
   {
