@@ -1479,20 +1479,20 @@
   <div class="overlay" id="aiSettingsOverlay">
     <div class="modal">
       <h2>AI Assist</h2>
-      <p class="hint">Choose how you'll want AI-suggested updates to characters, locations, items, and lore cards to behave once real-time reading comprehension is wired up. For now this just saves your preference &mdash; it'll take effect once that piece is built.</p>
+      <p class="hint">Click <b>Check memory</b> in a saved chapter or scene to send that passage and this book's character, location, item, and Lore cards to Gemini for suggestions. Suggestions stay pending until you approve them; Gemini never edits cards directly. This uses Google's unpaid Gemini API tier, where submitted content may be used to improve Google's products and may be reviewed by people. Do not send confidential or sensitive writing. <a href="https://ai.google.dev/gemini-api/terms" target="_blank" rel="noopener noreferrer">Review Google's Gemini API terms.</a> The options below are saved preferences only and do not change Memory Review behavior yet; autosave saves your writing but does not run an AI review.</p>
 
       <div class="ai-mode-options" id="aiModeOptions">
         <label class="ai-mode-option">
           <input type="radio" name="aiMode" value="a">
-          <div><div class="ai-mode-title">Check in every time</div><div class="ai-mode-desc">Every AI-suggested update pauses for your approval before anything changes.</div></div>
+          <div><div class="ai-mode-title">Check in every time</div><div class="ai-mode-desc">Saved preference only. Current reviews always wait for your explicit approval.</div></div>
         </label>
         <label class="ai-mode-option">
           <input type="radio" name="aiMode" value="b">
-          <div><div class="ai-mode-title">Apply automatically</div><div class="ai-mode-desc">Updates apply instantly with no interruptions, so your flow state stays intact.</div></div>
+          <div><div class="ai-mode-title">Apply automatically</div><div class="ai-mode-desc">Saved preference only. Marginalia does not apply suggestions automatically.</div></div>
         </label>
         <label class="ai-mode-option">
           <input type="radio" name="aiMode" value="c">
-          <div><div class="ai-mode-title">Review on save</div><div class="ai-mode-desc">The AI quietly tracks changes as you write. When you save, you'll get a summary to approve or reject each one.</div></div>
+          <div><div class="ai-mode-title">Review on save</div><div class="ai-mode-desc">Saved preference only. Run Memory Review manually with Check memory; autosave does not analyze writing.</div></div>
         </label>
       </div>
 

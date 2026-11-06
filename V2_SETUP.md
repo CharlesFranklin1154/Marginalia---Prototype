@@ -21,7 +21,11 @@ The old unscoped `marginalia-projects-v3` library is assigned to the first accou
 
 ## Analyzer behavior
 
-The analyzer currently uses deterministic mock logic, not a language model or paid AI provider. It recognizes supported character nicknames and contextual patterns for new character, location, item, and Lore cards. Lore types include factions, creatures, systems, and concepts. All proposals stay pending until reviewed; ambiguous prose may be missed or misclassified.
+Memory Review uses Gemini 3.8 Flash through the `analyze-scene` Edge Function. The endpoint verifies the Supabase session, restricts calls to the configured `GEMINI_ALLOWED_EMAIL`, and confirms the book belongs to the caller before sending the passage and selected story-card context to Google. The Gemini API key stays in an Edge Function secret.
+
+Gemini returns structured suggestions only. The function validates the target card and field, requires evidence quoted exactly from the submitted passage, computes the source line itself, and limits updates to append operations. It can propose new cards and evidence-based details for those cards; both remain pending in Memory Review. The model never writes directly to the database.
+
+Free-tier quotas vary by project and model. A provider quota or rate-limit response is shown to the user; the function does not retry or apply partial suggestions. Google states that content submitted under unpaid Gemini API services may be used to improve its products and may be reviewed by humans. Do not send confidential or sensitive writing on the unpaid tier; use invented text while testing and consult the current [Gemini API terms](https://ai.google.dev/gemini-api/terms), [pricing](https://ai.google.dev/gemini-api/docs/pricing), and [rate limits](https://ai.google.dev/gemini-api/docs/rate-limits).
 
 ## Database
 
@@ -41,9 +45,14 @@ Migration 006 is idempotent and asks PostgREST to reload its schema cache. It ad
 
 ## Edge Function
 
-The deployed endpoint is `POST /functions/v1/analyze-scene`. Its source is [`supabase/functions/analyze-scene/index.ts`](./supabase/functions/analyze-scene/index.ts), which imports [`mock-helpers.mjs`](./supabase/functions/analyze-scene/mock-helpers.mjs).
+The deployed endpoint is `POST /functions/v1/analyze-scene`. Its source is [`supabase/functions/analyze-scene/index.ts`](./supabase/functions/analyze-scene/index.ts), which imports [`gemini-helpers.mjs`](./supabase/functions/analyze-scene/gemini-helpers.mjs).
 
-Deploy the function separately from GitHub Pages, and include both files. No redeploy is needed for frontend-only changes; redeploy when either function source file changes.
+Set these Edge Function secrets in **Supabase Dashboard → Edge Functions → Secrets**:
+
+- `GEMINI_API_KEY`: the key created in Google AI Studio. Never put this value in frontend code, Git, or chat.
+- `GEMINI_ALLOWED_EMAIL`: the exact email address of the one Marginalia account allowed to use Gemini. The function fails closed if either secret is missing.
+
+Deploy `analyze-scene` separately from GitHub Pages. Its `gemini-helpers.mjs` file is bundled through the local import. With the Supabase CLI linked to the correct project, run `supabase functions deploy analyze-scene`. No redeploy is needed for frontend-only changes; deploy again when the Edge Function source changes.
 
 The function requires an authenticated bearer token and checks that the requested book belongs to that user. The browser's analysis request must not send the `Prefer` header; that header is not included in the Edge Function's CORS allowlist.
 

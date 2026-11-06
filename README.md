@@ -15,11 +15,13 @@ The latest Memory Review UX changes add a scrollable review panel and animate ap
 - Local-first saves, sync status, and deletion reconciliation.
 - Writing workspaces for chapters and scenes, plus entity cards and Brain Dumps.
 - Word goals, rich-text styles, line counts, and entity mention context.
-- Deterministic Memory Review suggestions for supported character, location, item, and Lore patterns.
+- Gemini-powered Memory Review suggestions for story discoveries and supported card-field updates.
 - Persistent suggestion history; approvals and rejections are saved before local changes are applied.
 - Provenance for approved details, with source links for supported character-card updates.
 
-The analyzer uses deterministic heuristics, not a language model. It can miss or misinterpret ambiguous prose; suggestions require review and approval.
+Memory Review calls Gemini 3.8 Flash through the authenticated Supabase Edge Function. Suggestions are validated against the current passage and supported card fields, then require writer review and approval. The Google API key is never sent to the browser. The function also requires an explicit allowed account email.
+
+The Gemini Developer API has a free tier with changing model-specific quotas. When the provider quota or rate limit is reached, Memory Review reports the limit and does not retry or apply changes. Google's terms for unpaid API use allow submitted content to be used to improve its products and may permit human review; do not send confidential or sensitive writing on the free tier. See [Google's Gemini API terms](https://ai.google.dev/gemini-api/terms), [pricing](https://ai.google.dev/gemini-api/docs/pricing), and [rate limits](https://ai.google.dev/gemini-api/docs/rate-limits).
 
 ## Backend setup
 
@@ -27,7 +29,7 @@ For a **new** Supabase database, run [`supabase/schema.sql`](./supabase/schema.s
 
 For the **existing** project, migrations `002` through `006` have been used. Migration 006 adds the `source_line` column required by Memory Review. The user confirmed that the app worked after this schema mismatch was corrected. Do not run the full schema on top of the existing database.
 
-The `analyze-scene` and `delete-account` Edge Functions are deployed separately from the website. Account deletion uses the Supabase service-role key only inside the Edge Function; never put it in the browser. Deploy the function before publishing the UI that calls it. See [`V2_SETUP.md`](./V2_SETUP.md#account-deletion).
+The `analyze-scene` and `delete-account` Edge Functions are deployed separately from the website. `analyze-scene` needs `GEMINI_API_KEY` and `GEMINI_ALLOWED_EMAIL` Edge Function secrets; never put the Gemini key in the browser. Account deletion uses the Supabase service-role key only inside its Edge Function. Deploy the function before publishing the UI that calls it. See [`V2_SETUP.md`](./V2_SETUP.md#edge-function).
 
 See [`V2_SETUP.md`](./V2_SETUP.md) for the data flow, migration list, and deployment boundaries.
 
@@ -38,6 +40,7 @@ Run from the project folder with Node.js:
 ```sh
 node supabase/v2-adapter.test.js
 node supabase/functions/analyze-scene/mock-helpers.test.mjs
+node supabase/functions/analyze-scene/gemini-helpers.test.mjs
 ```
 
 The tests use mocked HTTP responses. They do not replace a live Supabase check.
@@ -50,8 +53,9 @@ The tests use mocked HTTP responses. They do not replace a live Supabase check.
 4. Verify password recovery and email confirmation redirects in Supabase Auth; the published site URL must be configured and allowed.
 5. Before public use, review row-level security policies.
 6. Verify account deletion on a disposable account after deploying both the frontend and `delete-account` function.
-7. Treat a real AI provider as future work; decide on limits, privacy behavior, and cost controls before enabling paid calls.
-8. Continue mobile QA on real phones, especially the writer drawer, editor actions, and entity-card flows; mobile layouts now use one column and avoid page-level horizontal scrolling.
+7. Test Gemini Memory Review with invented sample writing and verify the live Edge Function quota/error flow. Before sending real unpublished work, review Google's free-tier data terms and decide whether its content-use and human-review terms are acceptable.
+8. Revisit the provider, privacy terms, per-user usage limits, and cost controls before moving beyond the personal free-tier test.
+9. Continue mobile QA on real phones, especially the writer drawer, editor actions, and entity-card flows; mobile layouts now use one column and avoid page-level horizontal scrolling.
 
 ## Publishing
 
