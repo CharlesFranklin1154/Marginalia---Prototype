@@ -3367,6 +3367,8 @@
   let entryCat = null;
   let entryAiSuggestions = [];
   let entryAiEntitiesChecked = null;
+  let entryAiModelSuggestionCount = null;
+  let entryAiValidatedSuggestionCount = null;
   let pendingSourceHighlight = null;
 
   function getEntryPlainText() {
@@ -3508,6 +3510,8 @@
     renderWriterSidebar();
     entryAiSuggestions = [];
     entryAiEntitiesChecked = null;
+    entryAiModelSuggestionCount = null;
+    entryAiValidatedSuggestionCount = null;
     entryAiReviewList.innerHTML = '';
     entryAiReviewStatus.textContent = '';
     entryAiReviewPanel.classList.remove('show');
@@ -3616,6 +3620,10 @@
       ? `${summary.total} ${summary.total === 1 ? 'suggestion' : 'suggestions'} · ${summary.pending} pending · ${summary.approved} approved · ${summary.rejected} rejected`
       : entryAiEntitiesChecked === 0
         ? 'No saved entities or new names matched'
+        : entryAiModelSuggestionCount === 0
+          ? `Gemini returned no suggestions · checked ${entryAiEntitiesChecked} saved entities`
+          : entryAiModelSuggestionCount > 0 && entryAiValidatedSuggestionCount === 0
+            ? `Gemini returned ${entryAiModelSuggestionCount} suggestions, but none passed validation`
         : entryAiEntitiesChecked > 0
           ? `Checked ${entryAiEntitiesChecked} saved entities; no details or new names matched`
           : 'Nothing new found';
@@ -3625,8 +3633,12 @@
       emptyState.className = 'writer-entity-empty';
       if (entryAiEntitiesChecked === 0) {
         emptyState.textContent = 'No saved cards or recognizable new names were found in this passage. Try a clear name in context or add a card manually.';
+      } else if (entryAiModelSuggestionCount === 0) {
+        emptyState.textContent = 'Gemini did not return any suggestions for this passage. It can miss relevant details or new names; try reviewing a shorter passage.';
+      } else if (entryAiModelSuggestionCount > 0 && entryAiValidatedSuggestionCount === 0) {
+        emptyState.textContent = `Gemini returned ${entryAiModelSuggestionCount} suggestions, but none passed validation. Suggestions must use a supported card field and include evidence copied exactly from the passage for a matching card or name.`;
       } else if (entryAiEntitiesChecked > 0) {
-        emptyState.textContent = 'No supported details or new names matched. This prototype uses limited context patterns and may miss ambiguous mentions.';
+        emptyState.textContent = 'No new suggestions to show for this passage.';
       } else {
         emptyState.textContent = 'No proposed updates for this passage.';
       }
@@ -3849,10 +3861,18 @@
       entryAiEntitiesChecked = Number.isFinite(Number(result.analysis && result.analysis.entitiesChecked))
         ? Number(result.analysis.entitiesChecked)
         : null;
+      entryAiModelSuggestionCount = Number.isFinite(Number(result.analysis && result.analysis.modelSuggestionCount))
+        ? Number(result.analysis.modelSuggestionCount)
+        : null;
+      entryAiValidatedSuggestionCount = Number.isFinite(Number(result.analysis && result.analysis.validatedSuggestionCount))
+        ? Number(result.analysis.validatedSuggestionCount)
+        : null;
       renderEntryAiReview();
     } catch (error) {
       entryAiSuggestions = [];
       entryAiEntitiesChecked = null;
+      entryAiModelSuggestionCount = null;
+      entryAiValidatedSuggestionCount = null;
       entryAiReviewStatus.textContent = 'Could not check this passage';
       entryAiReviewList.innerHTML = `<div class="writer-entity-empty">${escapeHtml(error.message)}</div>`;
     } finally {

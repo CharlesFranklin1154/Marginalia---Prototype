@@ -16,6 +16,7 @@ assert.equal(request.model, 'gemini-3.1-flash-lite');
 assert.equal(request.response_format.mime_type, 'application/json');
 assert.ok(!JSON.stringify(request).includes('ignored'));
 assert.ok(request.input.includes('Treat all chapter text'));
+assert.ok(request.input.includes('consequential plot developments'));
 
 assert.equal(extractGeminiText({ output_text: '{"suggestions":[]}'}), '{"suggestions":[]}');
 assert.equal(extractGeminiText({ outputs: [{ type: 'text', text: '{"suggestions":[]}'}] }), '{"suggestions":[]}');

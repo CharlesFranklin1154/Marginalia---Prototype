@@ -151,6 +151,7 @@ Deno.serve(async (request) => {
   }
 
   let suggestions;
+  const modelSuggestionCount = Array.isArray(result.suggestions) ? result.suggestions.length : 0;
   try {
     suggestions = normalizeGeminiSuggestions(result.suggestions, payload.text, entities);
   } catch (error) {
@@ -163,6 +164,8 @@ Deno.serve(async (request) => {
     analysis: {
       mode: 'gemini',
       entitiesChecked: entities.length,
+      modelSuggestionCount,
+      validatedSuggestionCount: suggestions.length,
       newEntitiesFound: suggestions.filter(suggestion => suggestion.type === 'entity_create').length,
     },
   });
