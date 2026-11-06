@@ -4,9 +4,9 @@ Marginalia is a browser-based writing workbench for books, chapters, scenes, cha
 
 ## Project status
 
-As of October 15, 2026, the user has confirmed that the published app saves data to Supabase and that Memory Review is working. The application is hosted on GitHub Pages; authentication, library sync, and suggestion review use Supabase.
+As of November 6, 2026, the published app has been confirmed to save data to Supabase and Gemini Memory Review has successfully returned suggestions after its response parser was updated for the Interactions API. The Timeline and Relationships features are now implemented in the repository and have passed local syntax, regression, and browser-load checks; the user has not yet completed hands-on testing of those two features.
 
-The latest Memory Review UX changes add a scrollable review panel and animate approved or rejected suggestions out of the pending list. Confirm these changes in the published site during the next browser QA pass.
+The current Timeline is a searchable story-card index with approved, source-linked developments. This is a useful first pass, not the intended final experience: the user wants it to become more of an AI-generated book overview paired with a vertically scrolling, alternating-side event timeline. The Relationships view and card editor are also first passes awaiting user review.
 
 ## What is implemented
 
@@ -24,6 +24,12 @@ The latest Memory Review UX changes add a scrollable review panel and animate ap
 Memory Review calls Gemini 3.1 Flash-Lite through the authenticated Supabase Edge Function. Suggestions are validated against the current passage and supported card fields, then require writer review and approval. The Google API key is never sent to the browser. The function also requires an explicit allowed account email.
 
 The Gemini Developer API has a free tier with changing model-specific quotas. When the provider quota or rate limit is reached, Memory Review reports the limit and does not retry or apply changes. Google's terms for unpaid API use allow submitted content to be used to improve its products and may permit human review; do not send confidential or sensitive writing on the free tier. See [Google's Gemini API terms](https://ai.google.dev/gemini-api/terms), [pricing](https://ai.google.dev/gemini-api/docs/pricing), and [rate limits](https://ai.google.dev/gemini-api/docs/rate-limits).
+
+### AI spending safety status
+
+Memory Review currently checks the configured account, rejects passages above 60,000 characters, and reports Gemini quota/rate-limit errors. It does **not** yet enforce an application-level daily request budget or provide a hard cost ceiling. A provider quota response is not a spending-control mechanism if the Google project is moved to paid billing. To keep testing free, verify the Google AI Studio project's billing/tier and do not enable paid billing for it. Budget alerts are useful notifications but should not be treated as hard spending caps.
+
+Before any paid or broader release, add server-enforced usage controls (including a per-account request/token budget and safe concurrency handling), explain provider limits and privacy terms in the UI, and test that calls are blocked when the allowance is exhausted. Do not promise zero spend while paid billing is enabled until an enforceable provider-side or application-side cap has been verified.
 
 ## Backend setup
 
@@ -49,15 +55,12 @@ The tests use mocked HTTP responses. They do not replace a live Supabase check.
 
 ## Next steps
 
-1. Browser-check the latest published Memory Review panel: scroll through a long list, approve and reject suggestions, confirm cards collapse smoothly, and confirm resolved suggestions remain in Approved/Rejected history.
-2. Re-run Memory Review on the same passage and confirm saved decisions persist.
-3. Smoke-test sync, restore, deletion, and account isolation with care; back up valuable writing before changing accounts. Isolation means a separate test account should not see the first account's library: create a uniquely named test book under the test account, then sign back into the original account and confirm that test book is absent.
-4. Verify password recovery and email confirmation redirects in Supabase Auth; the published site URL must be configured and allowed.
-5. Before public use, review row-level security policies.
-6. Verify account deletion on a disposable account after deploying both the frontend and `delete-account` function.
-7. Test Gemini Memory Review with invented sample writing and verify the live Edge Function quota/error flow. Before sending real unpublished work, review Google's free-tier data terms and decide whether its content-use and human-review terms are acceptable.
-8. Revisit the provider, privacy terms, per-user usage limits, and cost controls before moving beyond the personal free-tier test.
-9. Continue mobile QA on real phones, especially the writer drawer, editor actions, and entity-card flows; mobile layouts now use one column and avoid page-level horizontal scrolling.
+1. **Verify the Google project is still on the intended free tier before more Gemini testing.** Keep paid billing disabled for personal testing. The app currently has no daily usage ledger or hard spend cap. Before enabling billing or broader access, design and implement server-side request/token budgets, concurrency-safe enforcement, clear quota messaging, and tests that prove requests stop at the limit. Check current provider terms, quotas, model availability, and privacy conditions.
+2. **User-test the Timeline** with a real book: check that approved facts appear in chapter/scene order, source links open and highlight the right passage, filters work, and the card index is useful. Then redesign it toward the desired concept: an AI-generated high-level book overview and a downward-scrolling vertical timeline with events alternating left and right. Keep each event tied to its source; make the summary an explicit, on-demand action, show its scope/source material, and define spoiler/progress behavior before generating it.
+3. **User-test Relationships** by adding, editing, removing, syncing, and reloading character connections. Review the family-tree/connection-map layout, relationship labels and viewpoint, mobile usability, and behavior when a linked character is deleted. Add character portraits above names and fix long character names so they wrap or otherwise fit without clipping.
+4. **Tune Memory Review** with invented passages and realistic card sets. Review missed/incorrect suggestions, append behavior, duplicates, exact evidence, approvals/rejections, source links, longer-passage response times, and persistence across re-analysis. Keep writer approval as the gate for changes.
+5. Continue the existing operational QA: long Memory Review panel interactions and decision history; sync/restore/deletion and account isolation; password recovery/email confirmation URLs; RLS review; disposable-account deletion; and mobile QA for the writer, cards, and navigation.
+6. **Defer first-time-user onboarding** until the core writing, memory, Timeline, Relationships, and safety workflows are stable. Then create an intuitive, contextual how-to that introduces each feature when it becomes relevant.
 
 ## Publishing
 

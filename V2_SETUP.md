@@ -4,9 +4,11 @@ This guide describes Marginalia's current Supabase persistence and Memory Review
 
 ## Current status
 
-As of October 15, 2026, the user confirmed that library saves are reaching Supabase and Memory Review is working. The recent empty-response, CORS header, and missing `source_line` issues were addressed. Migration 006 supplies the column that was missing from the existing database.
+As of November 6, 2026, library saves are reaching Supabase and the user confirmed a successful live Gemini Memory Review after the Interactions API response parser was corrected. The existing-project `source_line` issue is resolved by migration 006. The Story Timeline and Relationships views are implemented in the frontend with no new migrations, but are awaiting the user's hands-on review.
 
 GitHub Pages publishes the browser app. Supabase database migrations and the `analyze-scene` Edge Function are separate deployments. Do not rerun migrations already applied or run `schema.sql` against the existing database.
+
+The current Timeline is a searchable card index plus approved, source-linked details; planned product work is to evolve this into a high-level AI book summary and a vertical, alternating-side event timeline. Any generated overview should be explicit/on-demand, source-aware, and designed around spoiler/progress expectations. Relationships currently use explicit character-card connections and a simple filterable map; portrait placement, long-name wrapping, and the visual design need user review and refinement.
 
 ## Data flow
 
@@ -30,6 +32,10 @@ Approved Memory Review details retain their value, evidence quotation, chapter o
 Character cards also store optional structured connections to other character-card IDs, including relationship type and context. The Relationships view visualizes these saved links and can focus on one character or filter by relationship type. Links are synced inside existing entity data and require no database migration.
 
 Free-tier quotas vary by project and model. A provider quota or rate-limit response is shown to the user; the function does not retry quota errors or apply partial suggestions. Transient Gemini 503 service-unavailable responses receive up to two short retries. Each upstream attempt has a 35-second timeout, keeping all three attempts and retry delays within Supabase's 150-second Edge Function execution limit; timed-out reviews return a clear error without changing the passage or saving suggestions. Google states that content submitted under unpaid Gemini API services may be used to improve its products and may be reviewed by humans. Do not send confidential or sensitive writing on the unpaid tier; use invented text while testing and consult the current [Gemini API terms](https://ai.google.dev/gemini-api/terms), [pricing](https://ai.google.dev/gemini-api/docs/pricing), and [rate limits](https://ai.google.dev/gemini-api/docs/rate-limits).
+
+### Usage and billing guardrails
+
+The Edge Function currently limits a passage to 60,000 characters and restricts Gemini to the configured account, but it does not track a daily request/token allowance or enforce a hard spend ceiling. Gemini's quota responses communicate provider limits; they are not an application spending cap. For free personal testing, verify the Google project is on the intended free tier and keep paid billing disabled. Before paid use, implement and validate server-side usage accounting and concurrency-safe limits, and verify any provider-side spending controls separately. Do not assume Google Cloud budget alerts stop charges.
 
 ## Database
 
