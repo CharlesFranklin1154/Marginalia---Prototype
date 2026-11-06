@@ -17,7 +17,8 @@ The latest Memory Review UX changes add a scrollable review panel and animate ap
 - Word goals, rich-text styles, line counts, and entity mention context.
 - Gemini-powered Memory Review suggestions for story discoveries and supported card-field updates.
 - Persistent suggestion history; approvals and rejections are saved before local changes are applied.
-- Provenance for approved details, with source links for supported character-card updates.
+- Browseable source lists on character, location, item, and Lore cards.
+- A book-level Story Timeline with a searchable card index and chapter/scene-ordered, evidence-linked approved developments.
 
 Memory Review calls Gemini 3.1 Flash-Lite through the authenticated Supabase Edge Function. Suggestions are validated against the current passage and supported card fields, then require writer review and approval. The Google API key is never sent to the browser. The function also requires an explicit allowed account email.
 

@@ -310,7 +310,7 @@
   .timeline-stat-value { color: var(--ink); font-family: var(--font-serif); font-size: 1.35rem; }
   .timeline-stat-label { margin-top: 3px; color: var(--ink-faint); font-size: 0.7rem; }
   .timeline-directory { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; }
-  .timeline-directory-card { padding: 13px 14px; border: 1px solid var(--paper-edge); border-radius: 7px; background: var(--bg); cursor: pointer; transition: border-color 0.15s ease, transform 0.15s ease; }
+  .timeline-directory-card { width: 100%; padding: 13px 14px; border: 1px solid var(--paper-edge); border-radius: 7px; background: var(--bg); color: var(--ink); font: inherit; text-align: left; cursor: pointer; transition: border-color 0.15s ease, transform 0.15s ease; }
   .timeline-directory-card:hover { border-color: var(--slate); transform: translateY(-1px); }
   .timeline-directory-kind { color: var(--slate-deep); font-size: 0.66rem; letter-spacing: 0.04em; text-transform: uppercase; }
   .timeline-directory-name { margin-top: 4px; color: var(--ink); font-family: var(--font-serif); font-size: 0.98rem; }
@@ -832,6 +832,7 @@
         <div class="nav-subitem" data-cat="items"><span class="sicon">&#9670;</span><span class="nav-text">Items</span></div>
         <div class="nav-subitem" data-cat="lore"><span class="sicon">&#10022;</span><span class="nav-text">Lore</span></div>
         <div class="nav-subitem" data-timeline="1"><span class="sicon">&#128214;</span><span class="nav-text">Timeline</span></div>
+        <div class="nav-subitem" data-relationships="1"><span class="sicon">&#9829;</span><span class="nav-text">Relationships</span></div>
         <div class="nav-subitem" data-brain="1"><span class="sicon">&#9729;</span><span class="nav-text">Brain Dump</span></div>
       </div>
     </div>
@@ -942,6 +943,10 @@
           <div class="cat-icon">&#128214;</div>
           <div><div class="cat-name">Story Timeline</div><div class="cat-count">A source-backed lore book</div></div>
         </div>
+        <div class="cat-card relationships-cat-card" data-relationships="1">
+          <div class="cat-icon">&#9829;</div>
+          <div><div class="cat-name">Relationships</div><div class="cat-count">Map character connections</div></div>
+        </div>
         <div class="cat-card" data-cat="brainDumps">
           <div class="cat-icon">&#9729;</div>
           <div><div class="cat-name">Add a Brain Dump</div><div class="cat-count" data-count="brainDumps">0 brain dumps</div></div>
@@ -998,6 +1003,31 @@
           </label>
         </div>
         <div class="timeline-event-list" id="timelineEvents"></div>
+      </section>
+    </div>
+
+    <!-- CHARACTER RELATIONSHIPS VIEW -->
+    <div class="view" id="relationshipsView">
+      <div class="hub-crumb" id="relationshipsCrumb">&larr; <span id="relationshipsCrumbTitle">Back to book</span></div>
+      <div class="hub-header"><div class="hub-icon">&#9829;</div><h1 id="relationshipsBookTitle">Relationships</h1></div>
+      <p class="hub-desc">Map who knows whom and how they are connected. Add relationship links on a character card; the map updates from your saved cards.</p>
+      <div class="relationship-toolbar">
+        <label>Focus character
+          <select id="relationshipFocus"><option value="all">All characters</option></select>
+        </label>
+        <label>Relationship
+          <select id="relationshipTypeFilter"><option value="all">All connections</option></select>
+        </label>
+        <span class="relationship-map-hint">Select a character node to open its card.</span>
+      </div>
+      <div class="relationship-map-scroll">
+        <svg id="relationshipMap" class="relationship-map" role="group" aria-label="Character relationship map"></svg>
+      </div>
+      <section class="relationship-list-section">
+        <div class="timeline-section-heading">
+          <div><h2>Connections</h2><p>Relationship notes saved on character cards.</p></div>
+        </div>
+        <div id="relationshipList" class="relationship-list"></div>
       </section>
     </div>
 
@@ -1170,6 +1200,11 @@
     <div class="modal wide template-page">
       <h2 id="charModalTitle">New character</h2>
 
+      <details class="entity-sources" id="charSources">
+        <summary>Sources</summary>
+        <div class="entity-source-list"></div>
+      </details>
+
       <div class="field">
         <label>Reference images <span style="color:var(--ink-faint); font-weight:400;">(optional &mdash; add as many as you like. Recommended around 800 &times; 800px, square)</span></label>
         <div class="char-image-grid" id="charImageGrid"></div>
@@ -1258,11 +1293,6 @@
         <textarea id="charNotes" rows="3" placeholder="Anything else worth remembering that doesn't fit above."></textarea>
       </div>
 
-      <details class="entity-sources" id="charSources">
-        <summary>Sources</summary>
-        <div class="entity-source-list"></div>
-      </details>
-
       <div class="modal-actions">
         <button class="btn ghost" id="charDeleteBtn" type="button" style="color:var(--rust-deep);">Delete</button>
         <div class="modal-actions-right">
@@ -1278,6 +1308,11 @@
   <div class="overlay editor-page" id="locationOverlay">
     <div class="modal wide template-page">
       <h2 id="locModalTitle">New location</h2>
+
+      <details class="entity-sources" id="locSources">
+        <summary>Sources</summary>
+        <div class="entity-source-list"></div>
+      </details>
 
       <div class="field">
         <label>Reference images <span style="color:var(--ink-faint); font-weight:400;">(optional &mdash; add as many as you like. Recommended around 800 &times; 800px, square)</span></label>
@@ -1341,11 +1376,6 @@
         <textarea id="locNotes" rows="3" placeholder="Anything else worth remembering that doesn't fit above."></textarea>
       </div>
 
-      <details class="entity-sources" id="locSources">
-        <summary>Sources</summary>
-        <div class="entity-source-list"></div>
-      </details>
-
       <div class="modal-actions">
         <button class="btn ghost" id="locDeleteBtn" type="button" style="color:var(--rust-deep);">Delete</button>
         <div class="modal-actions-right">
@@ -1361,6 +1391,11 @@
   <div class="overlay editor-page" id="itemOverlay">
     <div class="modal wide template-page">
       <h2 id="itemModalTitle">New item</h2>
+
+      <details class="entity-sources" id="itemSources">
+        <summary>Sources</summary>
+        <div class="entity-source-list"></div>
+      </details>
 
       <div class="field">
         <label>Reference images <span style="color:var(--ink-faint); font-weight:400;">(optional &mdash; add as many as you like. Recommended around 800 &times; 800px, square)</span></label>
@@ -1418,11 +1453,6 @@
         <textarea id="itemNotes" rows="3" placeholder="Anything else worth remembering that doesn't fit above."></textarea>
       </div>
 
-      <details class="entity-sources" id="itemSources">
-        <summary>Sources</summary>
-        <div class="entity-source-list"></div>
-      </details>
-
       <div class="modal-actions">
         <button class="btn ghost" id="itemDeleteBtn" type="button" style="color:var(--rust-deep);">Delete</button>
         <div class="modal-actions-right">
@@ -1438,6 +1468,11 @@
   <div class="overlay editor-page" id="loreOverlay">
     <div class="modal wide template-page">
       <h2 id="loreModalTitle">New lore card</h2>
+
+      <details class="entity-sources" id="loreSources">
+        <summary>Sources</summary>
+        <div class="entity-source-list"></div>
+      </details>
 
       <div class="field">
         <label>Reference images <span style="color:var(--ink-faint); font-weight:400;">(optional; images are resized before saving)</span></label>
@@ -1507,11 +1542,6 @@
         <label for="loreNotes">Additional notes</label>
         <textarea id="loreNotes" rows="3" placeholder="Anything else worth remembering. Add details gradually as the story reveals them."></textarea>
       </div>
-
-      <details class="entity-sources" id="loreSources">
-        <summary>Sources</summary>
-        <div class="entity-source-list"></div>
-      </details>
 
       <div class="modal-actions">
         <button class="btn ghost" id="loreDeleteBtn" type="button" style="color:var(--rust-deep);">Delete</button>
@@ -2863,7 +2893,7 @@
       (project[category] || []).map((entry, index) => ({ category, kind, label, entry, index }))
     );
     const events = timelineSources(project);
-    const totalSources = allEntities.reduce((count, item) => count + (Array.isArray(item.entry.provenance) ? item.entry.provenance.length : 0), 0);
+    const totalSources = events.length;
     const stats = [
       { label: 'Chapters', value: (project.chapters || []).length },
       { label: 'Scenes', value: (project.scenes || []).length },
@@ -3897,7 +3927,7 @@
       meta.className = 'entity-source-meta';
       const field = document.createElement('span');
       field.className = 'entity-source-field';
-      field.textContent = String(source.field || 'Story detail').replace(/([A-Z])/g, ' $1');
+      field.textContent = String(source.field || 'Story detail').replace(/([A-Z])/g, ' $1').replace(/^./, letter => letter.toUpperCase());
       const sourceLabel = source.sourceLabel || 'Source';
       const sourceButton = document.createElement('button');
       sourceButton.className = 'entity-source-link';
