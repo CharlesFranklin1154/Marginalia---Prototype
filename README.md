@@ -20,6 +20,8 @@ The current Timeline is a searchable story-card index with approved, source-link
 - Browseable source lists on character, location, item, and Lore cards.
 - A book-level Story Timeline with a searchable card index and chapter/scene-ordered, evidence-linked approved developments.
 - Structured character-to-character links on character cards and a standalone, filterable relationship map.
+- Character, location, item, and Lore collection cards preview multiple populated details instead of showing an empty-state message when only the first field is blank.
+- Memory Review shows an indeterminate activity bar and rotating category labels while its single Gemini request is running; these are activity cues, not separate analysis passes or measured progress.
 - Browser-local manuscript import for TXT, Markdown, DOCX, and EPUB, with detected chapters and editable titles/text before import.
 - Optional sequential Memory Review for imported chapters, with pause/cancel controls and writer approval still required.
 
@@ -68,7 +70,8 @@ The tests use mocked HTTP responses. They do not replace a live Supabase check.
 4. **User-test manuscript import and Memory Review** with files exported from Word/Google Docs, Scrivener, and plain-text editors. Check chapter detection/editing, encoding, paragraph preservation, local-storage capacity, sequential review progress, pause/cancel behavior, and pending-suggestion persistence. PDF import remains future work; export searchable PDFs to DOCX or TXT for now.
 5. **Tune Memory Review** with invented passages and realistic card sets. Investigate missed named characters and other key details, review append behavior, duplicates, exact evidence, approvals/rejections, source links, longer-passage response times, and persistence across re-analysis. Keep writer approval as the gate for changes.
 6. Continue the existing operational QA: long Memory Review panel interactions and decision history; sync/restore/deletion and account isolation; password recovery/email confirmation URLs; RLS review; disposable-account deletion; and mobile QA for the writer, cards, and navigation.
-7. **Defer first-time-user onboarding** until the core writing, memory, Timeline, Relationships, and safety workflows are stable. Then create an intuitive, contextual how-to that introduces each feature when it becomes relevant.
+7. **Improve entity collection cards** with an on-demand AI-generated, lore-aware summary that synthesizes all saved card fields and approved context, while keeping the existing editable detail card. Explore a featured image treatment and define when/how summaries refresh so they remain grounded in current approved information.
+8. **Defer first-time-user onboarding** until the core writing, memory, Timeline, Relationships, and safety workflows are stable. Then create an intuitive, contextual how-to that introduces each feature when it becomes relevant.
 
 ## Publishing
 

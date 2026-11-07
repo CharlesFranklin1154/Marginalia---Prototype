@@ -403,6 +403,13 @@
   .ai-review-status { color: var(--ink-faint); font-size: 0.75rem; }
   .ai-review-close { flex: 0 0 auto; padding: 2px 8px; line-height: 1; }
   .ai-review-list { display: flex; flex-direction: column; gap: 8px; }
+  .ai-review-loading { padding: 14px; border: 1px solid var(--paper-edge); border-radius: 6px; background: var(--paper); }
+  .ai-review-loading-label { color: var(--ink); font-size: 0.84rem; }
+  .ai-review-loading-note { margin-top: 9px; color: var(--ink-faint); font-size: 0.72rem; line-height: 1.45; }
+  .ai-review-progress { height: 5px; margin-top: 12px; overflow: hidden; border-radius: 5px; background: var(--paper-edge); }
+  .ai-review-progress span { display: block; width: 35%; height: 100%; border-radius: inherit; background: var(--slate); animation: aiReviewProgress 1.35s ease-in-out infinite; }
+  @keyframes aiReviewProgress { from { transform: translateX(-110%); } to { transform: translateX(310%); } }
+  @media (prefers-reduced-motion: reduce) { .ai-review-progress span { width: 100%; animation: none; } }
   .ai-review-panel, .ai-review-history { scrollbar-width: thin; scrollbar-color: var(--ink-faint) transparent; }
   .ai-review-panel::-webkit-scrollbar, .ai-review-history::-webkit-scrollbar { width: 7px; }
   .ai-review-panel::-webkit-scrollbar-thumb, .ai-review-history::-webkit-scrollbar-thumb { border-radius: 8px; background: var(--ink-faint); }
@@ -2889,6 +2896,19 @@
     return (tmp.textContent || '').trim();
   }
   function escapeHtml(s) { return String(s == null ? '' : s).replace(/</g, '&lt;'); }
+  function cardDetailsPreview(entry, fields) {
+    return fields
+      .map(([field, label]) => {
+        const value = entry[field];
+        return typeof value === 'string' || typeof value === 'number'
+          ? { label, value: String(value).trim() }
+          : null;
+      })
+      .filter(detail => detail && detail.value)
+      .slice(0, 3)
+      .map(detail => `${detail.label}: ${detail.value}`)
+      .join(' · ');
+  }
   function escapeRegex(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
   function buildMatchTerms(name) {
     const core = name.trim().replace(/^(the|a|an)\s+/i, '');
@@ -2925,20 +2945,36 @@
       card.className = 'hub-entry-card';
       if (cat === 'characters') {
         const thumb = entry.images && entry.images[0] ? `<div class="hub-entry-thumb" style="background-image:url('${entry.images[0]}')"></div>` : '';
-        const snippet = entry.role || entry.personality || entry.goal || '';
+        const snippet = cardDetailsPreview(entry, [
+          ['role', 'Role'], ['occupation', 'Occupation'], ['goal', 'Goal'], ['personality', 'Personality'],
+          ['physical', 'Appearance'], ['attire', 'Attire'], ['habits', 'Habits'], ['background', 'Background'],
+          ['internal', 'Internal'], ['external', 'External'], ['relationships', 'Relationships'],
+          ['notes', 'Notes'], ['age', 'Age'], ['sex', 'Sex'], ['tags', 'Tags'],
+        ]);
         const nickname = entry.nickname ? `<div class="hub-entry-snippet">Also known as ${escapeHtml(entry.nickname)}</div>` : '';
-        card.innerHTML = `${thumb}<div class="hub-entry-name">${escapeHtml(entry.name || 'Untitled')}</div>${nickname}<div class="hub-entry-snippet">${snippet ? snippet.replace(/</g,'&lt;') : '<span class="hub-entry-empty">No details yet.</span>'}</div>`;
+        card.innerHTML = `${thumb}<div class="hub-entry-name">${escapeHtml(entry.name || 'Untitled')}</div>${nickname}<div class="hub-entry-snippet">${snippet ? escapeHtml(snippet) : '<span class="hub-entry-empty">No details yet.</span>'}</div>`;
       } else if (cat === 'locations') {
         const thumb = entry.images && entry.images[0] ? `<div class="hub-entry-thumb" style="background-image:url('${entry.images[0]}')"></div>` : '';
-        const snippet = entry.role || entry.description || entry.location || '';
-        card.innerHTML = `${thumb}<div class="hub-entry-name">${entry.name || 'Untitled'}</div><div class="hub-entry-snippet">${snippet ? snippet.replace(/</g,'&lt;') : '<span class="hub-entry-empty">No details yet.</span>'}</div>`;
+        const snippet = cardDetailsPreview(entry, [
+          ['role', 'Role'], ['location', 'Location'], ['description', 'Description'], ['features', 'Features'],
+          ['characters', 'Characters'], ['weather', 'Weather'], ['sights', 'Sights'], ['sounds', 'Sounds'],
+          ['smells', 'Smells'], ['notes', 'Notes'],
+        ]);
+        card.innerHTML = `${thumb}<div class="hub-entry-name">${escapeHtml(entry.name || 'Untitled')}</div><div class="hub-entry-snippet">${snippet ? escapeHtml(snippet) : '<span class="hub-entry-empty">No details yet.</span>'}</div>`;
       } else if (cat === 'items') {
         const thumb = entry.images && entry.images[0] ? `<div class="hub-entry-thumb" style="background-image:url('${entry.images[0]}')"></div>` : '';
-        const snippet = entry.point || entry.looks || entry.effects || '';
-        card.innerHTML = `${thumb}<div class="hub-entry-name">${entry.name || 'Untitled'}</div><div class="hub-entry-snippet">${snippet ? snippet.replace(/</g,'&lt;') : '<span class="hub-entry-empty">No details yet.</span>'}</div>`;
+        const snippet = cardDetailsPreview(entry, [
+          ['point', 'Purpose'], ['looks', 'Appearance'], ['effects', 'Effects'], ['sounds', 'Sounds'],
+          ['weaknesses', 'Weaknesses'], ['designer', 'Designer'], ['designWhy', 'Design'], ['notes', 'Notes'],
+        ]);
+        card.innerHTML = `${thumb}<div class="hub-entry-name">${escapeHtml(entry.name || 'Untitled')}</div><div class="hub-entry-snippet">${snippet ? escapeHtml(snippet) : '<span class="hub-entry-empty">No details yet.</span>'}</div>`;
       } else if (cat === 'lore') {
         const thumb = entry.images && entry.images[0] ? `<div class="hub-entry-thumb" style="background-image:url('${entry.images[0]}')"></div>` : '';
-        const snippet = entry.overview || entry.role || entry.rules || entry.traits || '';
+        const snippet = cardDetailsPreview(entry, [
+          ['overview', 'Overview'], ['role', 'Role'], ['origin', 'Origin'], ['structure', 'Structure'],
+          ['rules', 'Rules'], ['traits', 'Traits'], ['limits', 'Limits'], ['relationships', 'Relationships'],
+          ['notes', 'Notes'],
+        ]);
         const loreTypeLabel = ({ faction: 'Faction / organization', creature: 'Creature / species', system: 'System / belief', concept: 'Concept / other' })[entry.loreType] || 'Concept / other';
         card.innerHTML = `${thumb}<div class="hub-entry-name">${escapeHtml(entry.name || 'Untitled')}</div><div class="hub-entry-snippet">${escapeHtml(loreTypeLabel)}${snippet ? `<br>${escapeHtml(snippet)}` : '<br><span class="hub-entry-empty">No details yet.</span>'}</div>`;
       } else {
@@ -4206,14 +4242,47 @@
     entryAnalyzeBtn.focus();
   });
 
+  function showEntryAiReviewLoading() {
+    const checks = [
+      'characters',
+      'locations',
+      'items',
+      'Lore',
+      'story developments',
+    ];
+    let checkIndex = 0;
+    const loading = document.createElement('div');
+    loading.className = 'ai-review-loading';
+    const label = document.createElement('div');
+    label.className = 'ai-review-loading-label';
+    label.setAttribute('role', 'status');
+    label.textContent = `Looking for ${checks[checkIndex]}…`;
+    const progress = document.createElement('div');
+    progress.className = 'ai-review-progress';
+    progress.setAttribute('role', 'progressbar');
+    progress.setAttribute('aria-label', 'Memory Review is in progress');
+    progress.appendChild(document.createElement('span'));
+    const note = document.createElement('div');
+    note.className = 'ai-review-loading-note';
+    note.textContent = 'One review is running. The moving bar and rotating labels show activity, not measured progress or separate checks.';
+    loading.append(label, progress, note);
+    entryAiReviewList.replaceChildren(loading);
+    entryAiReviewList.setAttribute('aria-busy', 'true');
+    const timer = window.setInterval(() => {
+      checkIndex = (checkIndex + 1) % checks.length;
+      label.textContent = `Looking for ${checks[checkIndex]}…`;
+    }, 3000);
+    return () => window.clearInterval(timer);
+  }
+
   entryAnalyzeBtn.addEventListener('click', async () => {
     const p = projects.find(x => x.id === activeProjectId);
     if (!p) return;
     entryAnalyzeBtn.disabled = true;
     entryAnalyzeBtn.textContent = 'Checking...';
     entryAiReviewPanel.classList.add('show');
-    entryAiReviewStatus.textContent = 'Reading this passage...';
-    entryAiReviewList.innerHTML = '';
+    entryAiReviewStatus.textContent = 'Review in progress';
+    const stopLoading = showEntryAiReviewLoading();
     try {
       performEntrySave(false);
       const currentEntry = p[entryCat][entryIndex];
@@ -4241,6 +4310,8 @@
       entryAiReviewStatus.textContent = 'Could not check this passage';
       entryAiReviewList.innerHTML = `<div class="writer-entity-empty">${escapeHtml(error.message)}</div>`;
     } finally {
+      stopLoading();
+      entryAiReviewList.setAttribute('aria-busy', 'false');
       entryAnalyzeBtn.disabled = false;
       entryAnalyzeBtn.textContent = 'Check memory';
     }
