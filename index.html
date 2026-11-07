@@ -3616,19 +3616,17 @@
     const summary = window.MarginaliaV2 && window.MarginaliaV2.summarizeSuggestionStatuses
       ? window.MarginaliaV2.summarizeSuggestionStatuses(entryAiSuggestions)
       : { total: entryAiSuggestions.length, pending: entryAiSuggestions.length, approved: 0, rejected: 0 };
-    const statusText = summary.total
-      ? `${summary.total} ${summary.total === 1 ? 'suggestion' : 'suggestions'} · ${summary.pending} pending · ${summary.approved} approved · ${summary.rejected} rejected`
+    const historyStatus = `${summary.total} ${summary.total === 1 ? 'saved suggestion' : 'saved suggestions'} · ${summary.pending} pending · ${summary.approved} approved · ${summary.rejected} rejected`;
+    const checkStatus = entryAiModelSuggestionCount !== null
+      ? `This check: Gemini returned ${entryAiModelSuggestionCount}; ${entryAiValidatedSuggestionCount} passed validation`
       : entryAiEntitiesChecked === 0
         ? 'No saved entities or new names matched'
-        : entryAiModelSuggestionCount === 0
-          ? `Gemini returned no suggestions · checked ${entryAiEntitiesChecked} saved entities`
-          : entryAiModelSuggestionCount > 0 && entryAiValidatedSuggestionCount === 0
-            ? `Gemini returned ${entryAiModelSuggestionCount} suggestions, but none passed validation`
         : entryAiEntitiesChecked > 0
-          ? `Checked ${entryAiEntitiesChecked} saved entities; no details or new names matched`
-          : 'Nothing new found';
+          ? `Checked ${entryAiEntitiesChecked} saved entities`
+          : '';
+    const statusText = [checkStatus, historyStatus].filter(Boolean).join(' · ');
     entryAiReviewStatus.textContent = statusText;
-    if (!entryAiSuggestions.length) {
+    if (summary.pending === 0) {
       const emptyState = document.createElement('div');
       emptyState.className = 'writer-entity-empty';
       if (entryAiEntitiesChecked === 0) {
@@ -3637,8 +3635,10 @@
         emptyState.textContent = 'Gemini did not return any suggestions for this passage. It can miss relevant details or new names; try reviewing a shorter passage.';
       } else if (entryAiModelSuggestionCount > 0 && entryAiValidatedSuggestionCount === 0) {
         emptyState.textContent = `Gemini returned ${entryAiModelSuggestionCount} suggestions, but none passed validation. Suggestions must use a supported card field and include evidence copied exactly from the passage for a matching card or name.`;
-      } else if (entryAiEntitiesChecked > 0) {
-        emptyState.textContent = 'No new suggestions to show for this passage.';
+      } else if (summary.total > 0) {
+        emptyState.textContent = 'No pending suggestions to review. Previously approved or rejected decisions are shown below.';
+      } else if (entryAiModelSuggestionCount > 0) {
+        emptyState.textContent = 'This check passed validation, but there are no pending suggestions to review. Matching suggestions may already have a saved decision.';
       } else {
         emptyState.textContent = 'No proposed updates for this passage.';
       }
