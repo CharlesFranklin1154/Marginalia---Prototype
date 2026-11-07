@@ -23,6 +23,8 @@ The current Timeline is a searchable story-card index with approved, source-link
 - Browser-local manuscript import for TXT, Markdown, DOCX, and EPUB, with detected chapters and editable titles/text before import.
 - Optional sequential Memory Review for imported chapters, with pause/cancel controls and writer approval still required.
 
+To start with a manuscript, choose **Start a new book** in the library, enter its title, then choose **Create & import**. For an existing book, open its Chapters view and choose **Import manuscript**.
+
 Import files are parsed in the browser, then chapters are saved and synced like other Marginalia content. PDF import is not supported; export searchable PDFs to DOCX or TXT. Large manuscripts may exceed browser local-storage capacity, so validate with a copy and consider importing a few chapters at a time.
 
 Memory Review calls Gemini 3.1 Flash-Lite through the authenticated Supabase Edge Function. Suggestions are validated against the current passage and supported card fields, then require writer review and approval. The Google API key is never sent to the browser. The function also requires an explicit allowed account email.

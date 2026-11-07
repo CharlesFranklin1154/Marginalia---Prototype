@@ -1102,7 +1102,7 @@
   <div class="overlay" id="newBookOverlay">
     <div class="modal">
       <h2>Title your project</h2>
-      <p class="hint">Just a title to start. You can add a cover now or later &mdash; everything here stays editable.</p>
+      <p class="hint">Just a title to start. You can add a cover now or later &mdash; everything here stays editable. Already have a manuscript? Create the book and import its chapters next.</p>
       <div class="field">
         <label for="newTitleInput">Title</label>
         <input id="newTitleInput" type="text" placeholder="e.g. The Long Way Home">
@@ -1120,10 +1120,12 @@
         <label for="newThemeSelect">Theme <span style="color:var(--ink-faint); font-weight:400;">(the mood this book opens with &mdash; sci-fi, noir, cozy...)</span></label>
         <select id="newThemeSelect"></select>
       </div>
+      <p class="hint" id="newBookStatus" aria-live="polite"></p>
       <div class="modal-actions">
         <span></span>
         <div class="modal-actions-right">
           <button class="btn ghost" id="newCancelBtn" type="button">Cancel</button>
+          <button class="btn ghost" id="newImportBtn" type="button">Create &amp; import</button>
           <button class="btn primary" id="newCreateBtn" type="button">Create book</button>
         </div>
       </div>
@@ -2697,6 +2699,7 @@
   // ================= New book modal =================
   const newBookOverlay = document.getElementById('newBookOverlay');
   const newTitleInput = document.getElementById('newTitleInput');
+  const newBookStatus = document.getElementById('newBookStatus');
   const newCoverPreview = document.getElementById('newCoverPreview');
   const newCoverFileInput = document.getElementById('newCoverFileInput');
   const swatchesEl = document.getElementById('swatches');
@@ -2718,6 +2721,7 @@
 
   function resetNewModal() {
     newTitleInput.value = ''; newCoverData = null; newSelectedColor = spineColors[0];
+    newBookStatus.textContent = '';
     newCoverPreview.style.backgroundImage = 'none';
     newCoverPreview.innerHTML = coverInnerHTML();
     newCoverPreview.classList.add('placeholder');
@@ -2737,14 +2741,26 @@
     reader.readAsDataURL(file);
     newCoverFileInput.value = '';
   });
-  document.getElementById('newCreateBtn').addEventListener('click', () => {
+  function createBook(importManuscript) {
     const title = newTitleInput.value.trim();
     if (!title) { newTitleInput.focus(); return; }
     const p = newProjectSkeleton(title, newCoverData, newSelectedColor, newThemeSelect.value);
-    projects.push(p); saveProjects();
+    projects.push(p);
+    if (!saveProjects()) {
+      projects.splice(projects.indexOf(p), 1);
+      newBookStatus.textContent = 'Could not save this book. Check browser storage and try again.';
+      return;
+    }
     newBookOverlay.classList.remove('show');
     renderLibrary();
-  });
+    if (importManuscript) {
+      showProjectOverview(p.id);
+      openHub('chapters');
+      openBookImport();
+    }
+  }
+  document.getElementById('newCreateBtn').addEventListener('click', () => createBook(false));
+  document.getElementById('newImportBtn').addEventListener('click', () => createBook(true));
   newTitleInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') document.getElementById('newCreateBtn').click(); });
 
   // ================= Project header =================
