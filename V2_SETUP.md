@@ -19,6 +19,8 @@ The current Timeline is a searchable card index plus approved, source-linked det
 5. The Edge Function verifies the signed-in user and book ownership and returns structured suggestions; it does not edit entities.
 6. Memory Review stores suggestions and review decisions in Supabase. The browser applies approved suggestions locally only after the decision is saved.
 
+The Chapters view can import TXT, Markdown, DOCX, and EPUB files in the browser. Chapter headings are detected when possible; the import preview lets the writer edit chapter titles and text, add/remove chapters, and move text between them before saving. Google Docs and Scrivener users can export DOCX; plain-text exports are also supported. PDF import is not supported because extraction quality varies; export searchable PDFs to DOCX or TXT first. The file is parsed locally rather than uploaded as an attachment, but imported chapter content is saved and synced to the user's Marginalia account. If sequential Memory Review is chosen, each imported chapter is also sent through the existing Gemini Edge Function one at a time; suggestions remain pending for explicit review.
+
 The old unscoped `marginalia-projects-v3` library is assigned to the first account that signs in after this change and moved to that account's key. Back up valuable writing before testing account changes. If Supabase is unavailable, the local copy remains available and the app reports the sync problem. Conflicting changes to the same project still use project-level last-sync-wins rather than per-document conflict resolution.
 
 ## Analyzer behavior
@@ -86,6 +88,8 @@ Run from the project folder:
 
 ```sh
 node supabase/v2-adapter.test.js
+node book-import.test.js
+node supabase/functions/analyze-scene/gemini-helpers.test.mjs
 node supabase/functions/analyze-scene/mock-helpers.test.mjs
 ```
 

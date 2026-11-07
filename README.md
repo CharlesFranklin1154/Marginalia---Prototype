@@ -4,7 +4,7 @@ Marginalia is a browser-based writing workbench for books, chapters, scenes, cha
 
 ## Project status
 
-As of November 6, 2026, the published app has been confirmed to save data to Supabase and Gemini Memory Review has successfully returned suggestions after its response parser was updated for the Interactions API. The Timeline and Relationships features are now implemented in the repository and have passed local syntax, regression, and browser-load checks; the user has not yet completed hands-on testing of those two features.
+As of November 6, 2026, the published app has been confirmed to save data to Supabase and Gemini Memory Review has successfully returned suggestions after its response parser was updated for the Interactions API. Manuscript import now supports TXT, Markdown, DOCX, and EPUB, with an editable chapter preview and optional sequential Memory Review; PDF import is not supported yet. The Timeline and Relationships features are implemented in the repository and have passed local syntax, regression, and browser-load checks; the user has not yet completed hands-on testing of those two features.
 
 The current Timeline is a searchable story-card index with approved, source-linked developments. This is a useful first pass, not the intended final experience: the user wants it to become more of an AI-generated book overview paired with a vertically scrolling, alternating-side event timeline. The Relationships view and card editor are also first passes awaiting user review.
 
@@ -20,6 +20,10 @@ The current Timeline is a searchable story-card index with approved, source-link
 - Browseable source lists on character, location, item, and Lore cards.
 - A book-level Story Timeline with a searchable card index and chapter/scene-ordered, evidence-linked approved developments.
 - Structured character-to-character links on character cards and a standalone, filterable relationship map.
+- Browser-local manuscript import for TXT, Markdown, DOCX, and EPUB, with detected chapters and editable titles/text before import.
+- Optional sequential Memory Review for imported chapters, with pause/cancel controls and writer approval still required.
+
+Import files are parsed in the browser, then chapters are saved and synced like other Marginalia content. PDF import is not supported; export searchable PDFs to DOCX or TXT. Large manuscripts may exceed browser local-storage capacity, so validate with a copy and consider importing a few chapters at a time.
 
 Memory Review calls Gemini 3.1 Flash-Lite through the authenticated Supabase Edge Function. Suggestions are validated against the current passage and supported card fields, then require writer review and approval. The Google API key is never sent to the browser. The function also requires an explicit allowed account email.
 
@@ -47,6 +51,7 @@ Run from the project folder with Node.js:
 
 ```sh
 node supabase/v2-adapter.test.js
+node book-import.test.js
 node supabase/functions/analyze-scene/mock-helpers.test.mjs
 node supabase/functions/analyze-scene/gemini-helpers.test.mjs
 ```
@@ -58,10 +63,10 @@ The tests use mocked HTTP responses. They do not replace a live Supabase check.
 1. **Verify the Google project is still on the intended free tier before more Gemini testing.** Keep paid billing disabled for personal testing. The app currently has no daily usage ledger or hard spend cap. Before enabling billing or broader access, design and implement server-side request/token budgets, concurrency-safe enforcement, clear quota messaging, and tests that prove requests stop at the limit. Check current provider terms, quotas, model availability, and privacy conditions.
 2. **User-test the Timeline** with a real book: check that approved facts appear in chapter/scene order, source links open and highlight the right passage, filters work, and the card index is useful. Then redesign it toward the desired concept: an AI-generated high-level book overview and a downward-scrolling vertical timeline with events alternating left and right. Keep each event tied to its source; make the summary an explicit, on-demand action, show its scope/source material, and define spoiler/progress behavior before generating it.
 3. **User-test Relationships** by adding, editing, removing, syncing, and reloading character connections. Review the family-tree/connection-map layout, relationship labels and viewpoint, mobile usability, and behavior when a linked character is deleted. Add character portraits above names and fix long character names so they wrap or otherwise fit without clipping.
-4. **Tune Memory Review** with invented passages and realistic card sets. Investigate missed named characters and other key details, review append behavior, duplicates, exact evidence, approvals/rejections, source links, longer-passage response times, and persistence across re-analysis. Keep writer approval as the gate for changes.
-5. Continue the existing operational QA: long Memory Review panel interactions and decision history; sync/restore/deletion and account isolation; password recovery/email confirmation URLs; RLS review; disposable-account deletion; and mobile QA for the writer, cards, and navigation.
-6. **Defer first-time-user onboarding** until the core writing, memory, Timeline, Relationships, and safety workflows are stable. Then create an intuitive, contextual how-to that introduces each feature when it becomes relevant.
-   - Future transition feature: let writers upload an existing book or manuscript to make moving to Marginalia easier. Define supported file formats, import preview, and how imported content maps to books, chapters, and scenes before implementation.
+4. **User-test manuscript import and Memory Review** with files exported from Word/Google Docs, Scrivener, and plain-text editors. Check chapter detection/editing, encoding, paragraph preservation, local-storage capacity, sequential review progress, pause/cancel behavior, and pending-suggestion persistence. PDF import remains future work; export searchable PDFs to DOCX or TXT for now.
+5. **Tune Memory Review** with invented passages and realistic card sets. Investigate missed named characters and other key details, review append behavior, duplicates, exact evidence, approvals/rejections, source links, longer-passage response times, and persistence across re-analysis. Keep writer approval as the gate for changes.
+6. Continue the existing operational QA: long Memory Review panel interactions and decision history; sync/restore/deletion and account isolation; password recovery/email confirmation URLs; RLS review; disposable-account deletion; and mobile QA for the writer, cards, and navigation.
+7. **Defer first-time-user onboarding** until the core writing, memory, Timeline, Relationships, and safety workflows are stable. Then create an intuitive, contextual how-to that introduces each feature when it becomes relevant.
 
 ## Publishing
 

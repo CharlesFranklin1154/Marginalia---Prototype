@@ -419,6 +419,13 @@
   .ai-review-history-item { padding: 7px 8px; border-radius: 6px; background: var(--paper); border: 1px solid var(--paper-edge); }
   .ai-review-history-item .label { font-size: 0.68rem; color: var(--slate-deep); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 3px; }
   .ai-review-history-item .text { font-size: 0.74rem; color: var(--ink-soft); line-height: 1.4; }
+  .chapter-import-actions { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 8px; }
+  .book-import-chapter { border: 1px solid var(--paper-edge); border-radius: 8px; padding: 10px; margin-top: 10px; background: rgba(255,255,255,0.28); }
+  .book-import-chapter label { display: block; font-size: 0.75rem; color: var(--ink-soft); margin-bottom: 6px; }
+  .book-import-chapter input, .book-import-chapter textarea { width: 100%; }
+  .book-import-chapter textarea { resize: vertical; font-family: var(--font-sans); font-size: 0.82rem; }
+  .book-import-progress-list { display: grid; gap: 6px; margin-top: 12px; }
+  .book-import-progress-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px; border: 1px solid var(--paper-edge); border-radius: 6px; font-size: 0.8rem; }
   @media (prefers-reduced-motion: reduce) {
     .ai-suggestion { transition: none; }
   }
@@ -1125,6 +1132,49 @@
   <input type="file" accept="image/*" class="hidden-file" id="newCoverFileInput">
   <input type="file" accept="image/*" class="hidden-file" id="coverFileInput">
 
+  <div class="overlay" id="bookImportOverlay">
+    <div class="modal">
+      <h2 id="bookImportTitle">Import a manuscript</h2>
+      <p class="hint" id="bookImportHint">Choose TXT, Markdown, DOCX (Word/Google Docs/Scrivener export), or EPUB. Files are read in this browser; imported chapters are saved to your Marginalia library.</p>
+      <div id="bookImportForm">
+        <div class="field">
+          <label for="bookImportFile">Manuscript file</label>
+          <input id="bookImportFile" type="file" accept=".txt,.text,.md,.docx,.epub,.pdf,text/plain">
+          <div class="hint" id="bookImportFileStatus"></div>
+        </div>
+        <div class="field">
+          <label for="bookImportReviewMode">After import</label>
+          <select id="bookImportReviewMode">
+            <option value="manual">Import only — open chapters and run Check memory individually.</option>
+            <option value="sequential">Import, then check every imported chapter sequentially without pause/cancel. Review suggestions afterward.</option>
+            <option value="controlled">Import, then check chapters sequentially with pause/cancel controls. Review suggestions afterward.</option>
+          </select>
+          <div class="hint">Imported chapters are saved and synced to your Marginalia account. If you choose Memory Review, each chapter is sent to Gemini. Suggestions remain pending until you approve them; this never edits cards automatically.</div>
+        </div>
+        <div class="field">
+          <label>Detected chapters</label>
+          <div class="hint" id="bookImportSplitHint">Chapter headings are detected automatically. Review the titles and text below; you can edit, add, remove, or move text between chapters before importing. Very large imports may exceed browser storage limits.</div>
+          <div id="bookImportChapters"></div>
+          <button class="btn ghost" id="bookImportAddChapter" type="button" style="margin-top:8px;">+ Add chapter</button>
+        </div>
+      </div>
+      <div id="bookImportProgress" hidden>
+        <p class="hint" id="bookImportProgressStatus" aria-live="polite"></p>
+        <div class="book-import-progress-list" id="bookImportProgressList"></div>
+      </div>
+      <div class="modal-actions">
+        <span>
+          <button class="btn ghost" id="bookImportPauseBtn" type="button" hidden>Pause</button>
+          <button class="btn ghost" id="bookImportCancelReviewBtn" type="button" hidden>Cancel review</button>
+        </span>
+        <div class="modal-actions-right">
+          <button class="btn ghost" id="bookImportCloseBtn" type="button">Close</button>
+          <button class="btn primary" id="bookImportConfirmBtn" type="button" disabled>Import chapters</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Writer modal (Chapters / Scenes) -->
   <div class="overlay editor-page" id="entryOverlay">
     <div class="modal writer editor-page-content">
@@ -1714,6 +1764,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="supabase/v2-adapter.js?v=20261015-2008"></script>
+<script src="book-import.js?v=20261106-1"></script>
 <script>
   const root = document.documentElement;
   const globalSaveBar = document.getElementById('globalSaveBar');
@@ -2836,6 +2887,23 @@
   }
   function renderHubGrid(cat, p) {
     hubGrid.innerHTML = '';
+    if (cat === 'chapters') {
+      const actions = document.createElement('div');
+      actions.className = 'chapter-import-actions';
+      const importButton = document.createElement('button');
+      importButton.type = 'button';
+      importButton.className = 'btn primary';
+      importButton.textContent = 'Import manuscript';
+      importButton.addEventListener('click', openBookImport);
+      const reviewButton = document.createElement('button');
+      reviewButton.type = 'button';
+      reviewButton.className = 'btn ghost';
+      reviewButton.textContent = 'Review all chapters';
+      reviewButton.disabled = !p.chapters.length;
+      reviewButton.addEventListener('click', () => startChapterMemoryReview(p.chapters.map(entry => entry._id), true));
+      actions.append(importButton, reviewButton);
+      hubGrid.appendChild(actions);
+    }
     p[cat].forEach((entry, idx) => {
       const card = document.createElement('div');
       card.className = 'hub-entry-card';
@@ -2859,7 +2927,7 @@
         card.innerHTML = `${thumb}<div class="hub-entry-name">${escapeHtml(entry.name || 'Untitled')}</div><div class="hub-entry-snippet">${escapeHtml(loreTypeLabel)}${snippet ? `<br>${escapeHtml(snippet)}` : '<br><span class="hub-entry-empty">No details yet.</span>'}</div>`;
       } else {
         const plain = stripHtml(entry.details || '');
-        card.innerHTML = `<div class="hub-entry-name">${entry.name || 'Untitled'}</div><div class="hub-entry-snippet">${plain ? plain.replace(/</g,'&lt;') : '<span class="hub-entry-empty">Nothing written yet.</span>'}</div>`;
+        card.innerHTML = `<div class="hub-entry-name">${escapeHtml(entry.name || 'Untitled')}</div><div class="hub-entry-snippet">${plain ? escapeHtml(plain) : '<span class="hub-entry-empty">Nothing written yet.</span>'}</div>`;
       }
       card.addEventListener('click', () => openEntryModal(cat, idx));
       hubGrid.appendChild(card);
@@ -2870,6 +2938,287 @@
     addTile.addEventListener('click', () => openEntryModal(cat, null));
     hubGrid.appendChild(addTile);
   }
+
+  const bookImportOverlay = document.getElementById('bookImportOverlay');
+  const bookImportFile = document.getElementById('bookImportFile');
+  const bookImportFileStatus = document.getElementById('bookImportFileStatus');
+  const bookImportChapters = document.getElementById('bookImportChapters');
+  const bookImportReviewMode = document.getElementById('bookImportReviewMode');
+  const bookImportForm = document.getElementById('bookImportForm');
+  const bookImportProgress = document.getElementById('bookImportProgress');
+  const bookImportProgressStatus = document.getElementById('bookImportProgressStatus');
+  const bookImportProgressList = document.getElementById('bookImportProgressList');
+  const bookImportConfirmBtn = document.getElementById('bookImportConfirmBtn');
+  const bookImportCloseBtn = document.getElementById('bookImportCloseBtn');
+  const bookImportPauseBtn = document.getElementById('bookImportPauseBtn');
+  const bookImportCancelReviewBtn = document.getElementById('bookImportCancelReviewBtn');
+  let bookImportPreview = [];
+  let chapterReviewBatch = null;
+  let bookImportReadSequence = 0;
+
+  function renderBookImportPreview() {
+    bookImportChapters.replaceChildren();
+    bookImportPreview.forEach((chapter, index) => {
+      const section = document.createElement('div');
+      section.className = 'book-import-chapter';
+      const titleLabel = document.createElement('label');
+      titleLabel.textContent = `Chapter ${index + 1} title`;
+      const title = document.createElement('input');
+      title.type = 'text';
+      title.value = chapter.title;
+      title.maxLength = 160;
+      title.addEventListener('input', () => { chapter.title = title.value; });
+      titleLabel.appendChild(title);
+      const textLabel = document.createElement('label');
+      textLabel.textContent = 'Chapter text';
+      textLabel.style.marginTop = '8px';
+      const text = document.createElement('textarea');
+      text.rows = 6;
+      text.value = chapter.text;
+      text.addEventListener('input', () => { chapter.text = text.value; });
+      textLabel.appendChild(text);
+      const remove = document.createElement('button');
+      remove.type = 'button';
+      remove.className = 'btn ghost';
+      remove.textContent = 'Remove chapter';
+      remove.style.marginTop = '8px';
+      remove.addEventListener('click', () => {
+        bookImportPreview.splice(index, 1);
+        renderBookImportPreview();
+      });
+      section.append(titleLabel, textLabel, remove);
+      bookImportChapters.appendChild(section);
+    });
+    document.getElementById('bookImportSplitHint').textContent = bookImportPreview.length
+      ? `${bookImportPreview.length} chapter${bookImportPreview.length === 1 ? '' : 's'} detected. Edit titles or text, add/remove chapters, and move text between chapters before importing.`
+      : 'Choose a manuscript file to detect chapter headings.';
+    bookImportConfirmBtn.disabled = bookImportPreview.length === 0;
+  }
+
+  function openBookImport() {
+    bookImportReadSequence += 1;
+    bookImportPreview = [];
+    bookImportFile.value = '';
+    bookImportFileStatus.textContent = '';
+    bookImportProgress.hidden = true;
+    bookImportForm.hidden = false;
+    bookImportConfirmBtn.hidden = false;
+    bookImportConfirmBtn.textContent = 'Import chapters';
+    bookImportConfirmBtn.disabled = true;
+    bookImportCloseBtn.disabled = false;
+    bookImportPauseBtn.hidden = true;
+    bookImportCancelReviewBtn.hidden = true;
+    document.getElementById('bookImportTitle').textContent = 'Import a manuscript';
+    document.getElementById('bookImportHint').textContent = 'TXT and Markdown work for Notepad and other text editors. DOCX works for Word, Google Docs exports, and Scrivener exports. EPUB is supported when its text can be extracted. The file is parsed in this browser; chapters are then saved and synced to your Marginalia account. PDF import is not supported yet; export a text-based PDF to DOCX or TXT first.';
+    renderBookImportPreview();
+    bookImportOverlay.classList.add('show');
+  }
+
+  function plainTextToEditorHtml(value) {
+    const escapeText = text => String(text).replace(/[&<>"]/g, character => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;',
+    })[character]);
+    return String(value || '').split(/\n/).map(line => `<div>${escapeText(line) || '<br>'}</div>`).join('');
+  }
+
+  function importPreviewChapters(project) {
+    const selected = bookImportPreview.map(chapter => ({
+      title: String(chapter.title || '').trim(),
+      text: String(chapter.text || '').trim(),
+    })).filter(chapter => chapter.title && chapter.text);
+    if (!selected.length) throw new Error('Add a title and some text to at least one chapter.');
+    const existing = new Set(project.chapters.map(chapter => String(chapter.name || '').trim().toLowerCase()));
+    return selected.map((chapter, index) => {
+      let title = chapter.title.slice(0, 160);
+      if (existing.has(title.toLowerCase())) title = `${title} (imported ${index + 1})`;
+      existing.add(title.toLowerCase());
+      return {
+        _id: 'e_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8),
+        name: title,
+        details: plainTextToEditorHtml(chapter.text),
+        wordGoal: null,
+      };
+    });
+  }
+
+  bookImportFile.addEventListener('change', async () => {
+    const file = bookImportFile.files && bookImportFile.files[0];
+    if (!file) return;
+    const readSequence = ++bookImportReadSequence;
+    bookImportPreview = [];
+    renderBookImportPreview();
+    bookImportFileStatus.textContent = `Reading ${file.name} locally...`;
+    try {
+      if (file.size > 50 * 1024 * 1024) throw new Error('Choose a file smaller than 50 MB.');
+      const text = await window.MarginaliaBookImport.extractFile(file);
+      if (readSequence !== bookImportReadSequence) return;
+      bookImportPreview = window.MarginaliaBookImport.detectChapters(text, file.name);
+      renderBookImportPreview();
+      bookImportFileStatus.textContent = `${file.name} · ${(text.length).toLocaleString()} characters extracted.`;
+    } catch (error) {
+      if (readSequence !== bookImportReadSequence) return;
+      bookImportFileStatus.textContent = error.message;
+      bookImportPreview = [];
+      renderBookImportPreview();
+    }
+  });
+
+  document.getElementById('bookImportAddChapter').addEventListener('click', () => {
+    bookImportPreview.push({ title: `Chapter ${bookImportPreview.length + 1}`, text: '' });
+    renderBookImportPreview();
+  });
+
+  bookImportCloseBtn.addEventListener('click', () => {
+    if (chapterReviewBatch && chapterReviewBatch.running) return;
+    bookImportOverlay.classList.remove('show');
+  });
+
+  bookImportConfirmBtn.addEventListener('click', () => {
+    const project = projects.find(item => item.id === activeProjectId);
+    if (!project) return;
+    let imported;
+    try {
+      imported = importPreviewChapters(project);
+    } catch (error) {
+      bookImportFileStatus.textContent = error.message;
+      return;
+    }
+    const originalCount = project.chapters.length;
+    project.chapters.push(...imported);
+    project.updated = Date.now();
+    if (!saveProjects()) {
+      project.chapters.splice(originalCount, imported.length);
+      bookImportFileStatus.textContent = 'Import was not saved. Check Marginalia’s save status; if browser storage is full, try a smaller file or import fewer chapters at a time.';
+      return;
+    }
+    renderCategoryCounts(project);
+    renderHubGrid('chapters', project);
+    bookImportOverlay.classList.remove('show');
+    const mode = bookImportReviewMode.value;
+    if (mode !== 'manual') {
+      startChapterMemoryReview(imported.map(entry => entry._id), mode === 'controlled');
+    }
+  });
+
+  bookImportPauseBtn.addEventListener('click', () => {
+    if (!chapterReviewBatch || !chapterReviewBatch.running) return;
+    chapterReviewBatch.paused = !chapterReviewBatch.paused;
+    bookImportPauseBtn.textContent = chapterReviewBatch.paused ? 'Resume' : 'Pause';
+    if (!chapterReviewBatch.paused && chapterReviewBatch.resume) {
+      chapterReviewBatch.resume();
+      chapterReviewBatch.resume = null;
+    }
+    bookImportProgressStatus.textContent = chapterReviewBatch.paused
+      ? 'Paused after the current chapter finishes. The in-progress request cannot be interrupted.'
+      : 'Resuming sequential Memory Review...';
+  });
+
+  bookImportCancelReviewBtn.addEventListener('click', () => {
+    if (!chapterReviewBatch || !chapterReviewBatch.running) return;
+    chapterReviewBatch.cancelled = true;
+    chapterReviewBatch.paused = false;
+    if (chapterReviewBatch.resume) {
+      chapterReviewBatch.resume();
+      chapterReviewBatch.resume = null;
+    }
+    bookImportProgressStatus.textContent = 'Cancelling after the current chapter finishes...';
+  });
+
+  async function startChapterMemoryReview(chapterIds, canControl) {
+    const project = projects.find(item => item.id === activeProjectId);
+    if (!project) return;
+    const entries = chapterIds.map(id => project.chapters.find(entry => entry._id === id)).filter(Boolean);
+    if (!entries.length) {
+      setSaveStatus('dirty', 'There are no chapters to review.');
+      return;
+    }
+    if (!window.MarginaliaV2 || typeof window.MarginaliaV2.analyzeProjectEntry !== 'function'
+      || !window.MarginaliaV2.config || !window.MarginaliaV2.config.cloudReady
+      || !window.MarginaliaV2.config.accessToken) {
+      setSaveStatus('dirty', 'Memory Review is unavailable. Sign in and check the Supabase connection before reviewing chapters.');
+      return;
+    }
+    chapterReviewBatch = { running: true, paused: false, cancelled: false, resume: null };
+    bookImportForm.hidden = true;
+    bookImportProgress.hidden = false;
+    bookImportProgressList.replaceChildren();
+    bookImportConfirmBtn.hidden = true;
+    bookImportPauseBtn.hidden = !canControl;
+    bookImportCancelReviewBtn.hidden = !canControl;
+    bookImportCloseBtn.disabled = true;
+    bookImportPauseBtn.textContent = 'Pause';
+    document.getElementById('bookImportTitle').textContent = 'Reviewing chapters';
+    document.getElementById('bookImportHint').textContent = 'Chapters are sent to Gemini one at a time. Suggestions are saved for review and never approved automatically.';
+    bookImportOverlay.classList.add('show');
+
+    let succeeded = 0;
+    let failed = 0;
+    let suggestionCount = 0;
+    const reviewButtons = [];
+    for (let index = 0; index < entries.length; index += 1) {
+      while (chapterReviewBatch.paused && !chapterReviewBatch.cancelled) {
+        await new Promise(resolve => { chapterReviewBatch.resume = resolve; });
+      }
+      if (chapterReviewBatch.cancelled) break;
+      const entry = entries[index];
+      bookImportProgressStatus.textContent = `Checking chapter ${index + 1} of ${entries.length}: ${entry.name}`;
+      const row = document.createElement('div');
+      row.className = 'book-import-progress-row';
+      const label = document.createElement('span');
+      label.textContent = entry.name;
+      const resultText = document.createElement('span');
+      resultText.textContent = 'Checking...';
+      const reviewButton = document.createElement('button');
+      reviewButton.type = 'button';
+      reviewButton.className = 'btn ghost';
+      reviewButton.textContent = 'Review';
+      reviewButton.disabled = true;
+      reviewButton.addEventListener('click', () => {
+        const entryIndex = project.chapters.findIndex(chapter => chapter._id === entry._id);
+        if (entryIndex < 0) return;
+        bookImportOverlay.classList.remove('show');
+        openEntryModal('chapters', entryIndex);
+      });
+      reviewButtons.push(reviewButton);
+      row.append(label, resultText, reviewButton);
+      bookImportProgressList.appendChild(row);
+      try {
+        if (stripHtml(entry.details || '').length > 60000) {
+          throw new Error('This chapter exceeds the 60,000-character Memory Review limit.');
+        }
+        const result = await window.MarginaliaV2.analyzeProjectEntry(project, {
+          ...entry,
+          category: 'chapters',
+          sourceLabel: `Chapter ${entry.name}`,
+        });
+        const pending = (result.suggestions || []).filter(suggestion => String(suggestion.status || 'pending').toLowerCase() === 'pending').length;
+        suggestionCount += pending;
+        succeeded += 1;
+        resultText.textContent = `${pending} pending suggestion${pending === 1 ? '' : 's'}`;
+      } catch (error) {
+        failed += 1;
+        resultText.textContent = `Could not check: ${error.message}`;
+      }
+    }
+    chapterReviewBatch.running = false;
+    const cancelled = chapterReviewBatch.cancelled;
+    reviewButtons.forEach(button => { button.disabled = false; });
+    bookImportCloseBtn.disabled = false;
+    bookImportPauseBtn.hidden = true;
+    bookImportCancelReviewBtn.hidden = true;
+    bookImportProgressStatus.textContent = `${cancelled ? 'Stopped early. ' : 'Finished. '}${succeeded} checked, ${failed} failed, ${suggestionCount} pending suggestions across the checked chapters. Open each chapter to review its suggestions.`;
+    const close = document.createElement('button');
+    close.type = 'button';
+    close.className = 'btn primary';
+    close.textContent = 'Open chapters';
+    close.addEventListener('click', () => {
+      bookImportOverlay.classList.remove('show');
+      openHub('chapters');
+    });
+    bookImportProgressList.appendChild(close);
+    openHub('chapters');
+  }
+
   document.getElementById('hubCrumb').addEventListener('click', () => { activeCat = null; switchTo(projectView); highlightNavSubitems(); });
 
   const timelineStats = document.getElementById('timelineStats');
